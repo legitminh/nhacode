@@ -1,0 +1,29 @@
+{
+  "name": "nhacode",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A full-screen, eight-octave piano grid built with Svelte and Keyflow.",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "test:browser": "playwright test",
+    "samples:fetch": "node scripts/fetch-piano.mjs"
+  },
+  "dependencies": {
+    "@legitminh/keyflow": "file:vendor/legitminh-keyflow-0.4.0.tgz",
+    "svelte": "5.57.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.1",
+    "@sveltejs/vite-plugin-svelte": "7.3.1",
+    "@types/node": "^24.0.0",
+    "svelte-check": "4.7.8",
+    "typescript": "6.0.3",
+    "vite": "8.3.8"
+  },
+  "engines": { "node": ">=22.18.0" }
+}
