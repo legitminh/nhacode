@@ -2,10 +2,9 @@
   import { KeyboardKeyDisplay } from '@legitminh/keyflow';
   import type { PianoNote } from './notes';
 
-  let { note, pressed, selected, onpress, onrelease }: {
+  let { note, pressed, onpress, onrelease }: {
     note: PianoNote;
     pressed: boolean;
-    selected: boolean;
     onpress: (source: string, note: PianoNote) => void;
     onrelease: (source: string) => void;
   } = $props();
@@ -80,12 +79,11 @@
   }
 </script>
 
-<div class="piano-cell" class:sharp={note.sharp} class:selected class:sounding={pressed}
+<div class="piano-cell" class:sounding={pressed}
   data-note={note.id} data-midi={note.midi} use:hold>
-  <KeyboardKeyDisplay key={note.id} label={`${note.name}, octave ${note.octave}, key ${note.hex}`}
-    {pressed} color={note.sharp ? '#b7beb4' : '#343a33'}
+  <KeyboardKeyDisplay key={note.hex} label={`${note.name}, octave ${note.octave}, key ${note.hex}`}
+    {pressed}
     onkey={(event) => { if (event.type === 'keydown') accessibleTap(); }}>
-    <span class="key-label">[{note.hex}]</span>
-    {#if selected}<span class="shortcut" aria-hidden="true">{note.shortcut}</span>{/if}
+    <span aria-hidden="true">[{note.hex}]</span>
   </KeyboardKeyDisplay>
 </div>

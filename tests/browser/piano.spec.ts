@@ -27,12 +27,19 @@ test.beforeEach(async ({ page }) => {
       return Reflect.apply(stop, this, args);
     };
   });
-  await page.goto('/');
-  await expect(page.getByRole('status')).toHaveText('Ready to play');
+  await page.goto('./');
+  await expect(page.getByRole('main')).toHaveAttribute('data-audio-state', 'ready');
 });
 
 test('all 96 Keyflow keys fit desktop and mobile viewports without scrolling', async ({ page }) => {
   await expect(page.locator('.piano-matrix .keyflow-key')).toHaveCount(96);
+  await expect(page.locator('button')).toHaveCount(96);
+  await expect(page.locator('header, footer, input, select, h1, h2, .shortcut')).toHaveCount(0);
+  for (const selector of ['link[rel="icon"]']) {
+    const href = await page.locator(selector).getAttribute('href');
+    const resource = await page.request.get(new URL(href!, page.url()).href);
+    expect(resource.ok()).toBe(true);
+  }
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 844, height: 390 }, { width: 320, height: 568 }]) {
     await page.setViewportSize(viewport);
     const sizes = await page.locator('.piano-cell').evaluateAll((cells) => cells.map((cell) => {
@@ -49,7 +56,7 @@ test('all 96 Keyflow keys fit desktop and mobile viewports without scrolling', a
     }
     expect(await page.evaluate(() => ({ width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight }))).toEqual(viewport);
     const matrix = (await page.locator('.piano-matrix').boundingBox())!;
-    expect(Math.abs(sizes.at(-1)!.bottom - (matrix.y + matrix.height))).toBeLessThan(2);
+    expect(Math.abs(sizes.at(-1)!.bottom - (matrix.y + matrix.height - 8))).toBeLessThan(2);
   }
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.screenshot({ path: 'test-results/nhacode-desktop.png' });
@@ -88,12 +95,13 @@ test('hardware chords, repeat filtering, octave changes and sustain release corr
   expect(await page.evaluate(() => (window as any).__audioProbe.stops)).toBe(2);
   await page.keyboard.down('Space');
   await page.keyboard.press('a');
-  await expect(page.getByRole('button', { name: /Sustain/ })).toHaveAttribute('aria-pressed', 'true');
   await expect.poll(() => page.evaluate(() => (window as any).__audioProbe.starts.length)).toBe(3);
   expect(await page.evaluate(() => (window as any).__audioProbe.stops)).toBe(2);
   await page.keyboard.up('Space');
   await expect.poll(() => page.evaluate(() => (window as any).__audioProbe.stops)).toBe(3);
-  await expect(page.getByRole('button', { name: /octave 4 with/ })).toHaveAttribute('aria-pressed', 'true');
+  await page.keyboard.down('a');
+  await expect(page.locator('[data-note="4-0"]')).toHaveClass(/sounding/);
+  await page.keyboard.up('a');
 });
 
 test('upper extension is pitched correctly and focus loss clears held notes', async ({ page }) => {

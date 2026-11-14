@@ -1,101 +1,35 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;650;700&display=swap');
+@import '@legitminh/keyflow/styles.css';
 
-:root {
-  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-  color: #2e352d;
-  background: #efeee8;
-  font-synthesis: none;
-  -webkit-font-smoothing: antialiased;
-  --mono: 'DM Mono', 'SFMono-Regular', Consolas, monospace;
+html, body, #app, main {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
-* { box-sizing: border-box; }
-html, body, #app { width: 100%; height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; }
-button, input { font: inherit; }
-button, a, input { -webkit-tap-highlight-color: transparent; }
-button { color: inherit; }
-button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid #728b37; outline-offset: 3px; }
-.studio { height: 100%; height: 100dvh; display: flex; flex-direction: column; padding: max(24px, env(safe-area-inset-top)) max(32px, env(safe-area-inset-right)) max(15px, env(safe-area-inset-bottom)) max(32px, env(safe-area-inset-left)); }
-.topbar { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding-bottom: 23px; border-bottom: 1px solid #d5d7ce; }
-.identity { display: flex; align-items: center; gap: 12px; }
-.mark { display: flex; align-items: flex-start; gap: 3px; width: 42px; height: 42px; padding: 10px 9px; border-radius: 11px; background: #2e352d; }
-.mark i { display: block; width: 6px; height: 22px; background: #dff594; border-radius: 1px; }
-.mark i:nth-child(2) { height: 14px; }
-h1 { margin: 0; font-size: 25px; font-weight: 700; letter-spacing: -1.3px; line-height: 1; }
-.brand-dot { color: #7b943e; }
-.identity p { margin: 7px 0 0; font-size: 11px; color: #7b8175; letter-spacing: .1px; }
-.instrument { display: flex; align-items: center; gap: 12px; margin-left: auto; margin-right: auto; }
-.instrument-icon { font-size: 26px; color: #7d866f; }
-.instrument strong { display: block; font-size: 13px; font-weight: 600; }
-.instrument div > span { display: block; margin-top: 4px; font: 9px var(--mono); letter-spacing: 1.1px; color: #818679; }
-.controls { display: flex; align-items: center; gap: 24px; }
-.pedal { display: flex; align-items: center; gap: 7px; padding: 9px 10px; background: transparent; border: 1px solid #d1d5c9; border-radius: 7px; cursor: pointer; font-size: 11px; }
-.pedal svg, .volume svg { width: 18px; height: 18px; flex-shrink: 0; }
-.control-state { margin-left: 3px; font: 8px var(--mono); color: #8a8e82; }
-.pedal.enabled { border-color: #829f40; background: #e0edbc; }
-.pedal.enabled .control-state { color: #4e6b20; }
-.volume { display: flex; align-items: center; gap: 8px; color: #737d68; }
-.volume input { width: 68px; height: 3px; margin: 0; accent-color: #6d8250; cursor: pointer; }
-.grid-meta { display: flex; align-items: center; justify-content: space-between; height: 54px; flex-shrink: 0; }
-.grid-title { display: flex; align-items: center; gap: 9px; }
-.tiny-square { width: 5px; height: 5px; background: #849368; }
-h2 { font: 10px var(--mono); letter-spacing: 1.25px; margin: 0; }
-.dimensions { font: 9px var(--mono); color: #8e9485; border-left: 1px solid #cdd2c4; padding-left: 10px; margin-left: 4px; }
-.play-status { display: flex; align-items: center; gap: 7px; font: 10px var(--mono); color: #79846b; }
-.status-dot { width: 5px; height: 5px; background: #a0aa8e; border-radius: 50%; }
-.status-dot.live { background: #719336; box-shadow: 0 0 0 3px #dfe8cf; }
-.failed { color: #ac5034; }
-.failed .status-dot { background: #ac5034; }
-.keyboard-area { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.register { display: flex; align-items: center; gap: 13px; height: 20px; padding: 0 2px 8px; font: 8px var(--mono); color: #93998b; letter-spacing: 1.5px; }
-.register-line { height: 1px; flex: 1; background: linear-gradient(to right, #cbd1c2, #cbd1c244); position: relative; }
-.register-line::after { content: ''; position: absolute; right: -1px; top: -2px; width: 4px; height: 4px; border-right: 1px solid #bfc7b2; border-top: 1px solid #bfc7b2; transform: rotate(45deg); }
-.keyboard-area .piano-matrix.keyflow-keyboard { flex: 1; min-height: 0; display: grid; grid-template-rows: repeat(12, minmax(0, 1fr)); --keyboard-padding: 0; --keyboard-gap: 5px; --keyboard-key-height: 0; --keyboard-key-radius: 5px; --keyboard-background: transparent; --keyboard-font: var(--mono); }
-.piano-row { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 5px; min-height: 0; }
-.piano-cell { min-width: 0; min-height: 0; position: relative; touch-action: none; }
-.piano-matrix .piano-cell .keyflow-key { width: 100%; height: 100%; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 0; position: relative; border-color: #d4d8cc; background: #f8f8f2; color: #68745c; box-shadow: 0 2px 0 #c9cebe; transition: background 80ms, box-shadow 80ms, border-color 80ms; touch-action: none; user-select: none; -webkit-user-select: none; }
-.piano-matrix .piano-cell.sharp .keyflow-key { background: #30372f; color: #a9b4a0; border-color: #30372f; box-shadow: 0 2px 0 #1e261c; }
-.piano-matrix .piano-cell.selected .keyflow-key { border-color: #a7b492; }
-.piano-matrix .piano-cell.selected.sharp .keyflow-key { border-color: #57674c; background: #35402f; }
-.key-label { font-size: clamp(12px, 1.4vw, 20px); font-weight: 400; line-height: 1; }
-.shortcut { position: absolute; right: 9px; bottom: 6px; font-size: 8px; opacity: .55; text-transform: uppercase; }
-.piano-matrix .piano-cell .keyflow-key:hover { border-color: #8e9d7a; background: #f0f4e5; }
-.piano-matrix .piano-cell.sharp .keyflow-key:hover { background: #404d36; border-color: #697b57; }
-.piano-matrix .piano-cell.sounding .keyflow-key, .piano-matrix .piano-cell .keyflow-key.pressed, .piano-matrix .piano-cell .keyflow-key:active { background: #d8f18c; color: #2d4024; border-color: #a8c35b; box-shadow: 0 0 0 1px #c5e27a, inset 0 2px 4px #b1c97160; transform: translateY(1px); }
-.piano-matrix .piano-cell .keyflow-key:focus-visible { z-index: 2; outline-color: #8cab48; outline-offset: 1px; }
-.octave-selector { flex-shrink: 0; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 5px; height: 31px; margin-top: 7px; }
-.octave-selector button { display: flex; align-items: center; flex-direction: column; gap: 5px; border: 0; padding: 2px 0; background: transparent; cursor: pointer; color: #a1a894; }
-.octave-tick { width: 14px; height: 2px; background: #c4ccba; border-radius: 1px; }
-.octave-caption { font: 7px var(--mono); letter-spacing: 1.5px; line-height: 1; }
-.octave-selector button.active { color: #70834f; }
-.octave-selector button.active .octave-tick { width: 26px; background: #829b58; }
-.octave-selector button:hover .octave-tick { background: #829b58; }
-.footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 32px; border-top: 1px solid #d5d7ce; margin-top: 3px; padding-top: 10px; font-size: 10px; color: #828a78; flex-shrink: 0; }
-.instructions, .footer-right, .desktop-hint { display: flex; align-items: center; gap: 7px; }
-.divider { color: #b6bdac; margin: 0 5px; }
-kbd { display: inline-flex; align-items: center; justify-content: center; border: 1px solid #cdd3c3; border-radius: 3px; width: 17px; height: 15px; font: 9px var(--mono); }
-.range { font: 9px var(--mono); }
-.footer-right { gap: 20px; }
-.note-readout { font: 8px var(--mono); letter-spacing: .7px; color: #929b87; }
-.footer a { color: #7b866b; text-decoration: none; font-size: 9px; }
-.footer a:hover { text-decoration: underline; }
-.retry { border: 0; background: transparent; color: #ac5034; padding: 0; cursor: pointer; font-size: 10px; }
-.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
-@media (min-width: 1600px) { .studio { padding-left: 48px; padding-right: 48px; } .keyboard-area .piano-matrix.keyflow-keyboard { --keyboard-gap: 7px; } .piano-row { gap: 7px; } }
-@media (max-width: 700px) {
-  .studio { padding: max(17px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
-  .topbar { gap: 10px; padding-bottom: 16px; }
-  .identity { gap: 8px; } .mark { width: 34px; height: 34px; padding: 8px 7px; gap: 2px; border-radius: 8px; } .mark i { height: 18px; width: 5px; } .mark i:nth-child(2) { height: 11px; }
-  h1 { font-size: 21px; } .identity p { font-size: 9px; margin-top: 5px; }
-  .instrument { gap: 6px; margin-right: 0; } .instrument-icon { display: none; } .instrument strong { font-size: 11px; } .instrument div > span { font-size: 7px; letter-spacing: .5px; }
-  .controls { gap: 8px; } .pedal { gap: 4px; padding: 7px; } .pedal > span:not(.control-state) { display: none; } .control-state { font-size: 7px; margin-left: 0; } .volume { display: none; }
-  .grid-meta { height: 45px; } h2 { font-size: 8px; letter-spacing: 1px; } .dimensions { font-size: 8px; } .play-status { font-size: 8px; }
-  .keyboard-area .piano-matrix.keyflow-keyboard { --keyboard-gap: 4px; --keyboard-key-radius: 4px; } .piano-row { gap: 4px; } .key-label { font-size: 12px; } .shortcut { right: 4px; bottom: 3px; font-size: 6px; }
-  .octave-caption { font-size: 5px; letter-spacing: .35px; } .footer { font-size: 8px; } .desktop-hint, .note-readout, .footer .range, .instructions > .divider { display: none; } .footer-right { gap: 8px; } .footer a { font-size: 8px; }
+main { height: 100dvh; }
+
+main .piano-matrix.keyflow-keyboard {
+  height: 100%;
+  display: grid;
+  grid-template-rows: repeat(12, minmax(0, 1fr));
+  --keyboard-key-height: 0;
 }
-@media (max-height: 550px) {
-  .studio { padding-top: max(9px, env(safe-area-inset-top)); padding-bottom: max(7px, env(safe-area-inset-bottom)); }
-  .topbar { padding-bottom: 9px; } .identity p, .instrument div > span { display: none; } .mark { height: 30px; width: 30px; padding: 6px; } .mark i { height: 18px; } .mark i:nth-child(2) { height: 12px; } h1 { font-size: 22px; }
-  .grid-meta { height: 28px; } .register { height: 14px; padding-bottom: 5px; font-size: 7px; } .keyboard-area .piano-matrix.keyflow-keyboard { --keyboard-gap: 3px; } .piano-row { gap: 4px; } .key-label { font-size: 10px; } .shortcut { bottom: 2px; font-size: 6px; } .octave-selector { height: 18px; margin-top: 4px; } .octave-selector button { gap: 3px; } .octave-caption { font-size: 5px; } .footer { min-height: 22px; padding-top: 5px; font-size: 8px; }
+
+.piano-row {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: var(--keyboard-gap, .3rem);
+  min-height: 0;
 }
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; } }
+
+.piano-cell { min-width: 0; min-height: 0; }
+
+.piano-cell .keyflow-key {
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
