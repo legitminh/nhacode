@@ -33,33 +33,98 @@ test.beforeEach(async ({ page }) => {
 
 test('all 96 Keyflow keys fit desktop and mobile viewports without scrolling', async ({ page }) => {
   await expect(page.locator('.piano-matrix .keyflow-key')).toHaveCount(96);
-  await expect(page.locator('button')).toHaveCount(96);
-  await expect(page.locator('header, footer, input, select, h1, h2, .shortcut')).toHaveCount(0);
+  await expect(page.locator('button')).toHaveCount(97);
+  await expect(page.locator('header, footer, select, h1, h2, .shortcut')).toHaveCount(0);
+  await expect(page.getByRole('checkbox', { name: 'Transpose display', includeHidden: true })).toBeHidden();
   for (const selector of ['link[rel="icon"]']) {
     const href = await page.locator(selector).getAttribute('href');
     const resource = await page.request.get(new URL(href!, page.url()).href);
     expect(resource.ok()).toBe(true);
   }
-  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 844, height: 390 }, { width: 320, height: 568 }]) {
-    await page.setViewportSize(viewport);
-    const sizes = await page.locator('.piano-cell').evaluateAll((cells) => cells.map((cell) => {
-      const rect = cell.getBoundingClientRect();
-      return { x: rect.x, y: rect.y, right: rect.right, bottom: rect.bottom, height: rect.height, width: rect.width };
-    }));
-    for (const cell of sizes) {
-      expect(cell.x).toBeGreaterThanOrEqual(0);
-      expect(cell.y).toBeGreaterThanOrEqual(0);
-      expect(cell.right).toBeLessThanOrEqual(viewport.width);
-      expect(cell.bottom).toBeLessThanOrEqual(viewport.height);
-      expect(cell.height).toBeGreaterThan(10);
-      expect(cell.width).toBeGreaterThan(20);
+  for (const transposed of [false, true]) {
+    if (transposed) {
+      await page.getByRole('button', { name: 'Settings', exact: true }).click();
+      await page.getByRole('checkbox', { name: 'Transpose display' }).check();
+      await page.keyboard.press('Escape');
     }
-    expect(await page.evaluate(() => ({ width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight }))).toEqual(viewport);
-    const matrix = (await page.locator('.piano-matrix').boundingBox())!;
-    expect(Math.abs(sizes.at(-1)!.bottom - (matrix.y + matrix.height - 8))).toBeLessThan(2);
+    for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 844, height: 390 }, { width: 320, height: 568 }]) {
+      await page.setViewportSize(viewport);
+      const sizes = await page.locator('.piano-cell').evaluateAll((cells) => cells.map((cell) => {
+        const rect = cell.getBoundingClientRect();
+        return { x: rect.x, y: rect.y, right: rect.right, bottom: rect.bottom, height: rect.height, width: rect.width };
+      }));
+      for (const cell of sizes) {
+        expect(cell.x).toBeGreaterThanOrEqual(0);
+        expect(cell.y).toBeGreaterThanOrEqual(0);
+        expect(cell.right).toBeLessThanOrEqual(viewport.width);
+        expect(cell.bottom).toBeLessThanOrEqual(viewport.height);
+        expect(cell.height).toBeGreaterThan(10);
+        expect(cell.width).toBeGreaterThan(20);
+      }
+      expect(await page.evaluate(() => ({ width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight }))).toEqual(viewport);
+      const matrix = (await page.locator('.piano-matrix').boundingBox())!;
+      expect(Math.abs(sizes.at(-1)!.bottom - (matrix.y + matrix.height - 8))).toBeLessThan(2);
+      const labels = await page.locator('.piano-cell button').evaluateAll((buttons) => buttons.map((button) => {
+        const key = button.getBoundingClientRect();
+        const label = button.querySelector('span')!.getBoundingClientRect();
+        return {
+          text: button.textContent!.trim(),
+          color: getComputedStyle(button).color,
+          dx: label.x + label.width / 2 - key.x - key.width / 2,
+          dy: label.y + label.height / 2 - key.y - key.height / 2,
+          fits: label.width <= key.width && label.height <= key.height,
+        };
+      }));
+      expect(new Set(labels.map((label) => label.color)).size).toBe(1);
+      for (const label of labels) {
+        expect(label.text).toMatch(/^[0-9ab]$/);
+        expect(Math.abs(label.dx)).toBeLessThan(1);
+        expect(Math.abs(label.dy)).toBeLessThan(1);
+        expect(label.fits).toBe(true);
+      }
+    }
   }
   await page.setViewportSize({ width: 1440, height: 900 });
+  expect(await page.locator('.piano-cell button').first().evaluate((button) => getComputedStyle(button).fontSize)).toBe('48px');
+  await page.screenshot({ path: 'test-results/nhacode-transposed.png' });
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.getByRole('checkbox', { name: 'Transpose display' }).uncheck();
+  await page.keyboard.press('Escape');
   await page.screenshot({ path: 'test-results/nhacode-desktop.png' });
+});
+
+test('settings transposes display while preserving pitches and releases active notes', async ({ page }) => {
+  await page.keyboard.down('a');
+  await expect(page.locator('.sounding')).toHaveCount(1);
+  const settings = page.getByRole('button', { name: 'Settings', exact: true });
+  await settings.click();
+  await expect(page.locator('.sounding')).toHaveCount(0);
+  await page.keyboard.up('a');
+  await expect(settings).toHaveAttribute('aria-expanded', 'true');
+  await page.getByRole('checkbox', { name: 'Transpose display' }).check();
+  await expect(page.locator('.piano-row')).toHaveCount(8);
+  await expect(page.locator('.piano-row').first().locator('.piano-cell')).toHaveCount(12);
+  expect(await page.locator('.piano-cell').evaluateAll((cells) => cells.map((cell) => Number((cell as HTMLElement).dataset.midi))))
+    .toEqual(Array.from({ length: 96 }, (_, index) => 21 + index));
+  await page.keyboard.press('Escape');
+  await expect(settings).toHaveAttribute('aria-expanded', 'false');
+  const first = (await page.locator('[data-note="0-0"]').boundingBox())!;
+  const next = (await page.locator('[data-note="0-1"]').boundingBox())!;
+  const octave = (await page.locator('[data-note="1-0"]').boundingBox())!;
+  expect(next.x).toBeGreaterThan(first.x);
+  expect(next.y).toBe(first.y);
+  expect(octave.x).toBe(first.x);
+  expect(octave.y).toBeGreaterThan(first.y);
+  const count = await page.evaluate(() => (window as any).__audioProbe.starts.length);
+  await page.locator('[data-note="7-11"] button').click({ delay: 100 });
+  await expect.poll(() => page.evaluate(() => (window as any).__audioProbe.starts.length)).toBe(count + 1);
+  expect(await page.evaluate(() => (window as any).__audioProbe.starts.at(-1).rate)).toBeCloseTo(2 ** (8 / 12));
+  await settings.click();
+  await page.getByRole('checkbox', { name: 'Transpose display' }).uncheck();
+  await settings.click();
+  await expect(page.locator('.piano-row')).toHaveCount(12);
+  await expect(page.locator('.piano-row').first().locator('.piano-cell')).toHaveCount(8);
+  await expect(settings).toHaveAttribute('aria-expanded', 'false');
 });
 
 test('pointer down starts actual piano audio, release outside stops, click does not double-trigger', async ({ page }) => {

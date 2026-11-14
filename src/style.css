@@ -8,27 +8,81 @@ html, body, #app, main {
   overscroll-behavior: none;
 }
 
-main { height: 100dvh; }
+main {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  --rows: 12;
+  --columns: 8;
+  --key-size: var(--min-box);
+}
+
+main.transposed { --rows: 8; --columns: 12; }
+
+.settings-bar {
+  height: 40px;
+  flex-shrink: 0;
+  padding-left: .5rem;
+  display: flex;
+  align-items: center;
+}
+
+.settings-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  color: var(--primary);
+}
+
+#settings {
+  position: fixed;
+  inset: 40px auto auto .5rem;
+  margin: 0;
+  padding: 1rem;
+  color: var(--primary);
+  background: var(--background);
+  border: 1px solid var(--primary);
+  border-radius: .25rem;
+  font: 1rem / 1.5 var(--font-mono);
+}
+
+.transpose-option { display: flex; align-items: center; gap: .5rem; cursor: pointer; }
+.transpose-option input { margin: 0; accent-color: var(--primary); }
+.settings-toggle:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
 
 main .piano-matrix.keyflow-keyboard {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   display: grid;
-  grid-template-rows: repeat(12, minmax(0, 1fr));
+  grid-template-rows: repeat(var(--rows), minmax(0, 1fr));
   --keyboard-key-height: 0;
+  --min-box: min(var(--key-size),
+    calc((100dvw - 1rem - (var(--columns) - 1) * .3rem) / var(--columns) - 2px),
+    calc((100dvh - 40px - 1rem - (var(--rows) - 1) * .3rem) / var(--rows) - 2px));
+  --keyboard-font-size: var(--min-box);
+  --keyboard-pressed-color: var(--background);
 }
 
 .piano-row {
   display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--columns), minmax(0, 1fr));
   gap: var(--keyboard-gap, .3rem);
   min-height: 0;
 }
 
 .piano-cell { min-width: 0; min-height: 0; }
 
-.piano-cell .keyflow-key {
+.piano-matrix .piano-cell .keyflow-key {
   width: 100%;
   height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  text-align: center;
+  line-height: 1;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;

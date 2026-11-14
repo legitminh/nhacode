@@ -18,8 +18,11 @@ Requires Node 22.18+ (Node 24 recommended). Open the local URL printed by Vite.
 
 - Rows, top to bottom: A, A♯, B, C, C♯, D, D♯, E, F, F♯, G, G♯.
 - Columns run from the lowest octave on the left to the highest on the right.
-- The screen contains only the eight columns of Keyflow keys, using the library's
-  default styling, with no extra settings, labels or colors.
+- Keys use centered, unbracketed hexadecimal labels at Keyflow's `--min-box` font
+  size (48px, reduced only to fit smaller cells), all in the same theme color.
+- The settings icon at the top left opens **Transpose display**. In the default
+  layout, each octave runs down a column. Transposed, the twelve notes run left
+  to right, and higher octaves follow in rows below. The pitches stay unchanged.
 - Computer-keyboard shortcuts: `A W S E D F T G Y H U J` (top to bottom).
 - Left/right arrows or pressing a key select an octave. The fourth column is selected initially.
 - Hold Space for sustain. Escape stops all notes.
@@ -52,8 +55,8 @@ upstream revision and parses the data without evaluating downloaded JavaScript.
 
 ## Keyflow
 
-Version **0.4.0**, latest release verified on 2026-11-14, from upstream revision
-`a2271a8d0ddcb171e9e80dec9b0eb761e59a9020`.
+Version **0.5.0**, latest release verified on 2026-11-14, from upstream revision
+`295385d42356a96d862a12d75628d15e1f5ed99a`.
 The official release archive is committed in `vendor/` and locked in
 `package-lock.json`, so a clean checkout needs no Keyflow source build.
 Source: https://github.com/legitminh/keyflow

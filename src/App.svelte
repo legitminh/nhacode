@@ -11,6 +11,11 @@
   let selectedOctave = $state(3);
   let spaceHeld = $state(false);
   let status = $state<'loading' | 'ready' | 'playing' | 'error'>('loading');
+  let settingsOpen = $state(false);
+  let transposed = $state(false);
+  const displayRows = $derived(transposed
+    ? Array.from({ length: 8 }, (_, octave) => NOTE_ROWS.map((row) => row[octave]))
+    : NOTE_ROWS);
   const sounding = $derived(new Set([...held.values()].map((note) => note.id)));
   $effect(() => engine.setSustain(spaceHeld));
 
@@ -60,7 +65,7 @@
   }
 
   function keydown(event: KeyboardEvent) {
-    if (editing(event.target) || event.metaKey || event.ctrlKey || event.altKey || event.isComposing) return;
+    if (settingsOpen || editing(event.target) || event.metaKey || event.ctrlKey || event.altKey || event.isComposing) return;
     const row = SHORTCUTS.indexOf(event.key.toLowerCase() as typeof SHORTCUTS[number]);
     if (row >= 0) {
       event.preventDefault();
@@ -95,9 +100,30 @@
 
 <svelte:window onkeydown={keydown} onkeyup={keyup} onblur={stopAll} onpointerup={pointerup} onpointercancel={pointerup} />
 
-<main aria-label="Piano keyboard" aria-busy={status === 'loading'} data-audio-state={status}>
+<main class:transposed aria-label="Piano keyboard" aria-busy={status === 'loading'} data-audio-state={status}>
+  <div class="settings-bar">
+    <button class="settings-toggle" aria-label="Settings" aria-haspopup="dialog" aria-expanded={settingsOpen} popovertarget="settings">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path stroke-linejoin="round" d="m9.5 3-.6 2.1-1.6.9-2.1-.5L2.7 9.8l1.5 1.6v1.8l-1.5 1.6 2.5 4.3 2.1-.5 1.6.9.6 2.1h5l.6-2.1 1.6-.9 2.1.5 2.5-4.3-1.5-1.6v-1.8l1.5-1.6-2.5-4.3-2.1.5-1.6-.9L14.5 3z" />
+        <circle cx="12" cy="12.2" r="3" />
+      </svg>
+    </button>
+  </div>
+  <div id="settings" popover="auto" role="dialog" aria-label="Settings"
+    onbeforetoggle={(event) => {
+      settingsOpen = event.newState === 'open';
+      if (settingsOpen) stopAll();
+    }}>
+    <label class="transpose-option">
+      <input type="checkbox" checked={transposed} onchange={(event) => {
+        stopAll();
+        transposed = event.currentTarget.checked;
+      }} />
+      Transpose display
+    </label>
+  </div>
   <KeyboardDisplay class="piano-matrix">
-    {#each NOTE_ROWS as row}
+    {#each displayRows as row}
       <div class="piano-row">
         {#each row as note (note.id)}
           <PianoKey {note} pressed={sounding.has(note.id)} onpress={press} onrelease={release} />

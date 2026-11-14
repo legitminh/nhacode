@@ -82,8 +82,8 @@
 <div class="piano-cell" class:sounding={pressed}
   data-note={note.id} data-midi={note.midi} use:hold>
   <KeyboardKeyDisplay key={note.hex} label={`${note.name}, octave ${note.octave}, key ${note.hex}`}
-    {pressed}
+    {pressed} color="var(--primary)"
     onkey={(event) => { if (event.type === 'keydown') accessibleTap(); }}>
-    <span aria-hidden="true">[{note.hex}]</span>
+    <span aria-hidden="true">{note.hex}</span>
   </KeyboardKeyDisplay>
 </div>
