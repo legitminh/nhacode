@@ -11,10 +11,10 @@
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
     "test:browser": "playwright test",
-    "samples:fetch": "node scripts/fetch-piano.mjs"
+    "samples:fetch": "node scripts/fetch-piano.mjs && node scripts/fetch-instruments.mjs"
   },
   "dependencies": {
-    "@legitminh/keyflow": "file:vendor/legitminh-keyflow-0.5.0.tgz",
+    "@legitminh/keyflow": "file:vendor/legitminh-keyflow-0.6.0.tgz",
     "svelte": "5.57.3"
   },
   "devDependencies": {

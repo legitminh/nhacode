@@ -1,89 +1,37 @@
 <script lang="ts">
-  import { KeyboardKeyDisplay } from '@legitminh/keyflow';
+  import { KeyboardKeyDisplay, type InteractionEvent } from '@legitminh/keyflow';
   import type { PianoNote } from './notes';
 
-  let { note, pressed, onpress, onrelease }: {
+  let { note, pressed, disabled, mouseDown, onpress, onrelease }: {
     note: PianoNote;
     pressed: boolean;
+    disabled: boolean;
+    mouseDown: boolean;
     onpress: (source: string, note: PianoNote) => void;
     onrelease: (source: string) => void;
   } = $props();
+  const pointerSource = (event: InteractionEvent) => `${event.pointer_type === 'touch' ? 'touch' : 'mouse'}:${note.id}`;
+  const keyboardSource = (event: InteractionEvent) => `keyboard:${note.id}:${event.code ?? ''}`;
 
-  // The library's keycap emits a complete tap on click. Capture the real
-  // pointer lifecycle so musical notes begin on down and end on release.
-  function hold(node: HTMLDivElement) {
-    const sources = new Set<string>();
-    function down(event: PointerEvent) {
-      if (event.button !== 0) return;
-      const button = node.querySelector('button')!;
-      button.setPointerCapture(event.pointerId);
-      const source = `pointer:${event.pointerId}`;
-      sources.add(source);
-      onpress(source, note);
-    }
-    function up(event: PointerEvent) {
-      const source = `pointer:${event.pointerId}`;
-      sources.delete(source);
-      onrelease(source);
-    }
-    function keydown(event: KeyboardEvent) {
-      if (event.key !== 'Enter' && event.key !== ' ') return;
-      event.preventDefault();
-      event.stopPropagation();
-      if (event.repeat) return;
-      const source = `focus:${note.id}:${event.key}`;
-      sources.add(source);
-      onpress(source, note);
-    }
-    function keyup(event: KeyboardEvent) {
-      if (event.key !== 'Enter' && event.key !== ' ') return;
-      event.preventDefault();
-      event.stopPropagation();
-      const source = `focus:${note.id}:${event.key}`;
-      sources.delete(source);
-      onrelease(source);
-    }
-    function blur() {
-      sources.forEach(onrelease);
-      sources.clear();
-    }
-    function click(event: MouseEvent) {
-      // Prevent the subsequent pointer click from generating a second note.
-      if (event.detail > 0) event.stopPropagation();
-    }
-    node.addEventListener('pointerdown', down, true);
-    node.addEventListener('pointerup', up);
-    node.addEventListener('pointercancel', up);
-    node.addEventListener('lostpointercapture', up);
-    node.addEventListener('keydown', keydown);
-    node.addEventListener('keyup', keyup);
-    node.addEventListener('focusout', blur);
-    node.addEventListener('click', click, true);
-    return { destroy() {
-      blur();
-      node.removeEventListener('pointerdown', down, true);
-      node.removeEventListener('pointerup', up);
-      node.removeEventListener('pointercancel', up);
-      node.removeEventListener('lostpointercapture', up);
-      node.removeEventListener('keydown', keydown);
-      node.removeEventListener('keyup', keyup);
-      node.removeEventListener('focusout', blur);
-      node.removeEventListener('click', click, true);
-    } };
+  function down(event: InteractionEvent) {
+    if (event.source === 'pointer') onpress(pointerSource(event), note);
+    else onpress(keyboardSource(event), note);
   }
-
-  function accessibleTap() {
-    const source = `accessible:${note.id}`;
-    onpress(source, note);
-    setTimeout(() => onrelease(source), 180);
+  function up(event: InteractionEvent) {
+    // Touch contact exit handles lift, including multiple contacts on one key.
+    if (event.source !== 'pointer') onrelease(keyboardSource(event));
+    else if (event.pointer_type !== 'touch') onrelease(pointerSource(event));
   }
+  function enter(event: InteractionEvent) {
+    if (event.pointer_type === 'touch' || mouseDown) onpress(pointerSource(event), note);
+  }
+  function exit(event: InteractionEvent) { onrelease(pointerSource(event)); }
 </script>
 
-<div class="piano-cell" class:sounding={pressed}
-  data-note={note.id} data-midi={note.midi} use:hold>
+<div class="piano-cell" class:sounding={pressed} data-note={note.id} data-midi={note.midi}>
   <KeyboardKeyDisplay key={note.hex} label={`${note.name}, octave ${note.octave}, key ${note.hex}`}
-    {pressed} color="var(--primary)"
-    onkey={(event) => { if (event.type === 'keydown') accessibleTap(); }}>
+    {pressed} {disabled} color="var(--primary)" on_pressed_down={down} on_pressed_up={up}
+    on_cursor_enter={enter} on_cursor_exit={exit} onkey={() => {}}>
     <span aria-hidden="true">{note.hex}</span>
   </KeyboardKeyDisplay>
 </div>

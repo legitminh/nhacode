@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { NOTE_ROWS, NOTES, noteAt } from '../src/lib/notes.ts';
+import { NOTE_ROWS, NOTES, noteAt, parseOctaveRange } from '../src/lib/notes.ts';
 
 test('the A-based octave grid contains 96 distinct, consecutive semitones', () => {
   assert.equal(NOTE_ROWS.length, 12);
@@ -17,7 +17,19 @@ test('the A-based octave grid contains 96 distinct, consecutive semitones', () =
 });
 
 test('out-of-grid coordinates are rejected', () => {
-  for (const [octave, row] of [[-1, 0], [8, 0], [0, 12], [0.5, 1]]) {
+  for (const [octave, row] of [[-1, 0], [9, 0], [0, 12], [0.5, 1]]) {
     assert.throws(() => noteAt(octave, row), RangeError);
+  }
+});
+
+test('octave intervals honor included and excluded integer endpoints', () => {
+  assert.deepEqual(parseOctaveRange('[0,8)'), [0, 1, 2, 3, 4, 5, 6, 7]);
+  assert.deepEqual(parseOctaveRange('[2,4]'), [2, 3, 4]);
+  assert.deepEqual(parseOctaveRange('(2,4)'), [3]);
+  assert.deepEqual(parseOctaveRange('(2,4]'), [3, 4]);
+  assert.deepEqual(parseOctaveRange(' [ 0 , 8 ] '), [0, 1, 2, 3, 4, 5, 6, 7, 8]);
+  assert.equal(noteAt(8, 0).midi, 117);
+  for (const invalid of ['0-8', '[0,9)', '[4,2]', '(2,3)', '[2.5,4]', '[-1,4]']) {
+    assert.throws(() => parseOctaveRange(invalid));
   }
 });

@@ -27,18 +27,39 @@ main.transposed { --rows: 8; --columns: 12; }
   align-items: center;
 }
 
-.settings-toggle {
+.settings-menu > .subkeyframe-trigger {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 32px;
   height: 32px;
   color: var(--primary);
+  font-size: 16px;
+  line-height: 1;
 }
 
-#settings {
+.settings-menu > .subkeyframe-trigger .button { position: relative; }
+.settings-menu > .subkeyframe-trigger .content { display: flex; align-items: center; background: transparent; }
+.settings-menu > .subkeyframe-trigger .route {
+  position: absolute;
+  top: 0;
+  right: 0;
+  visibility: hidden;
+  pointer-events: none;
+  background: var(--background);
+  font-size: 12px;
+}
+.settings-menu > .subkeyframe-trigger:hover .route,
+.settings-menu > .subkeyframe-trigger:focus-visible .route { visibility: visible; }
+
+.settings-bar .settings-menu > .subkeyframe-panel {
   position: fixed;
   inset: 40px auto auto .5rem;
+  z-index: 2;
+  box-sizing: border-box;
+  width: min(24rem, calc(100vw - 1rem));
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
   margin: 0;
   padding: 1rem;
   color: var(--primary);
@@ -48,9 +69,15 @@ main.transposed { --rows: 8; --columns: 12; }
   font: 1rem / 1.5 var(--font-mono);
 }
 
-.transpose-option { display: flex; align-items: center; gap: .5rem; cursor: pointer; }
-.transpose-option input { margin: 0; accent-color: var(--primary); }
-.settings-toggle:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.settings-menu .subkeyframe-panel button { font-size: 1rem; line-height: 1.5; text-align: left; }
+.settings-menu .subkeyframe-panel > button,
+.instrument-select > button,
+.instrument-select .subkeyframe-items button { display: block; width: 100%; border: 1px solid currentColor; padding: .5rem; }
+.settings-menu .button .content, .settings-menu .button .pending_route { background: var(--background); }
+.settings-menu .subkeyframe-panel .route { margin-right: .5rem; }
+.octave-range .keyflow-textbox { margin: .25rem 0 0; }
+.range-error { margin: .25rem 0 0; font-size: .875rem; line-height: 1.5; }
+.settings-menu > .subkeyframe-trigger:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
 
 main .piano-matrix.keyflow-keyboard {
   flex: 1;

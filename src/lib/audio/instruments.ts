@@ -14,4 +14,16 @@ export const instruments: readonly InstrumentDefinition[] = [
       })),
     ),
   },
+  ...['violin', 'cello', 'flute'].map((id) => ({
+    id,
+    name: id[0].toUpperCase() + id.slice(1),
+    create: () => new SampledInstrument(id, id,
+      // A sample every three semitones; intermediate notes are pitch shifted.
+      Array.from({ length: 30 }, (_, index) => ({
+        midi: 21 + index * 3,
+        url: `${import.meta.env.BASE_URL}audio/${id}/${21 + index * 3}.mp3`,
+      })),
+      { sustain: true },
+    ),
+  })),
 ];

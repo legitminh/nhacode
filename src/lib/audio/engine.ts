@@ -9,6 +9,7 @@ export class AudioEngine {
   private sustained = new Set<Voice>();
   private pedal = false;
   private volume = 0.65;
+  private compressor?: DynamicsCompressorNode;
 
   constructor(private definition: InstrumentDefinition) {}
 
@@ -18,21 +19,35 @@ export class AudioEngine {
     this.gain ??= this.context.createGain();
     this.gain.gain.value = this.volume * 0.65;
     // A compressor gives chords headroom without hard clipping.
-    const compressor = this.context.createDynamicsCompressor();
-    compressor.threshold.value = -12;
-    compressor.knee.value = 18;
-    compressor.ratio.value = 4;
-    this.gain.connect(compressor).connect(this.context.destination);
-    this.instrument = this.definition.create();
-    this.loading = this.instrument.prepare(this.context, this.gain).catch((error) => {
-      this.instrument?.dispose();
-      this.instrument = undefined;
-      this.loading = undefined;
-      this.gain?.disconnect();
-      compressor.disconnect();
+    if (!this.compressor) {
+      this.compressor = this.context.createDynamicsCompressor();
+      this.compressor.threshold.value = -12;
+      this.compressor.knee.value = 18;
+      this.compressor.ratio.value = 4;
+      this.gain.connect(this.compressor).connect(this.context.destination);
+    }
+    const instrument = this.definition.create();
+    this.instrument = instrument;
+    this.loading = instrument.prepare(this.context, this.gain).then(() => {
+      if (this.instrument !== instrument) instrument.dispose();
+    }).catch((error) => {
+      instrument.dispose();
+      if (this.instrument === instrument) {
+        this.instrument = undefined;
+        this.loading = undefined;
+      }
       throw error;
     });
     return this.loading;
+  }
+
+  selectInstrument(definition: InstrumentDefinition) {
+    this.stopAll();
+    this.instrument?.dispose();
+    this.instrument = undefined;
+    this.loading = undefined;
+    this.definition = definition;
+    return this.prepare();
   }
 
   /** Call directly inside a trusted pointer/key gesture for mobile audio unlock. */
