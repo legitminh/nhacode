@@ -14,7 +14,7 @@
     "samples:fetch": "node scripts/fetch-piano.mjs && node scripts/fetch-instruments.mjs"
   },
   "dependencies": {
-    "@legitminh/keyflow": "file:vendor/legitminh-keyflow-0.6.0.tgz",
+    "@legitminh/keyflow": "file:vendor/legitminh-keyflow-0.7.0.tgz",
     "svelte": "5.57.3"
   },
   "devDependencies": {

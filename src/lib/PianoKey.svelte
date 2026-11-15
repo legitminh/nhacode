@@ -2,13 +2,14 @@
   import { KeyboardKeyDisplay, type InteractionEvent } from '@legitminh/keyflow';
   import type { PianoNote } from './notes';
 
-  let { note, pressed, disabled, mouseDown, onpress, onrelease }: {
+  let { note, pressed, disabled, mouseDown, onpress, onrelease, onactivate }: {
     note: PianoNote;
     pressed: boolean;
     disabled: boolean;
     mouseDown: boolean;
     onpress: (source: string, note: PianoNote) => void;
     onrelease: (source: string) => void;
+    onactivate: () => void;
   } = $props();
   const pointerSource = (event: InteractionEvent) => `${event.pointer_type === 'touch' ? 'touch' : 'mouse'}:${note.id}`;
   const keyboardSource = (event: InteractionEvent) => `keyboard:${note.id}:${event.code ?? ''}`;
@@ -18,6 +19,7 @@
     else onpress(keyboardSource(event), note);
   }
   function up(event: InteractionEvent) {
+    if (!event.cancelled) onactivate();
     // Touch contact exit handles lift, including multiple contacts on one key.
     if (event.source !== 'pointer') onrelease(keyboardSource(event));
     else if (event.pointer_type !== 'touch') onrelease(pointerSource(event));
@@ -31,7 +33,8 @@
 <div class="piano-cell" class:sounding={pressed} data-note={note.id} data-midi={note.midi}>
   <KeyboardKeyDisplay key={note.hex} label={`${note.name}, octave ${note.octave}, key ${note.hex}`}
     {pressed} {disabled} color="var(--primary)" on_pressed_down={down} on_pressed_up={up}
-    on_cursor_enter={enter} on_cursor_exit={exit} onkey={() => {}}>
+    on_cursor_enter={enter} on_cursor_exit={exit}
+    onkey={(event) => { if (event.type === 'keydown') onactivate(); }}>
     <span aria-hidden="true">{note.hex}</span>
   </KeyboardKeyDisplay>
 </div>

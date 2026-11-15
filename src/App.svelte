@@ -60,6 +60,13 @@
     engine.noteOff(source);
   }
 
+  function activateAudio() {
+    // Safari may allow activation at touch release/click but not pointer down.
+    void engine.unlock().then(() => {
+      if (status === 'error') status = held.size ? 'playing' : 'ready';
+    }).catch(() => { status = 'error'; });
+  }
+
   function stopAll() {
     held = new Map();
     mouseDown = false;
@@ -113,7 +120,7 @@
         <div class="piano-row">
           {#each row as note (note.id)}
             <PianoKey {note} pressed={sounding.has(note.id)} {mouseDown}
-              disabled={settingsOpen} onpress={press} onrelease={release} />
+              disabled={settingsOpen} onpress={press} onrelease={release} onactivate={activateAudio} />
           {/each}
         </div>
       {/each}

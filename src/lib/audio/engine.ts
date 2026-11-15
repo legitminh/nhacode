@@ -10,11 +10,26 @@ export class AudioEngine {
   private pedal = false;
   private volume = 0.65;
   private compressor?: DynamicsCompressorNode;
+  private previousSessionType?: string;
 
   constructor(private definition: InstrumentDefinition) {}
 
+  private requestPlaybackSession() {
+    // Web Audio otherwise defaults to an ambient session on iOS. Request the
+    // music playback category so this app activates the selected output route.
+    const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
+    if (!session) return;
+    try {
+      this.previousSessionType ??= session.type;
+      if (session.type !== 'playback') session.type = 'playback';
+    } catch {
+      // Browsers with partial Audio Session implementations can still use Web Audio.
+    }
+  }
+
   prepare(): Promise<void> {
     if (this.loading) return this.loading;
+    this.requestPlaybackSession();
     this.context ??= new AudioContext({ latencyHint: 'interactive' });
     this.gain ??= this.context.createGain();
     this.gain.gain.value = this.volume * 0.65;
@@ -52,8 +67,9 @@ export class AudioEngine {
 
   /** Call directly inside a trusted pointer/key gesture for mobile audio unlock. */
   async unlock() {
+    this.requestPlaybackSession();
     const prepared = this.prepare();
-    const resumed = this.context!.resume();
+    const resumed = this.context!.state === 'running' ? Promise.resolve() : this.context!.resume();
     await Promise.all([prepared, resumed]);
   }
 
@@ -94,5 +110,9 @@ export class AudioEngine {
     this.stopAll();
     this.instrument?.dispose();
     void this.context?.close();
+    const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
+    if (session?.type === 'playback' && this.previousSessionType !== undefined) {
+      try { session.type = this.previousSessionType; } catch { /* Optional platform API. */ }
+    }
   }
 }

@@ -128,27 +128,43 @@ test('settings transposes display while preserving pitches and releases active n
   await expect(page.getByRole('region', { name: 'Settings', exact: true })).toHaveCount(0);
 });
 
-test('Keyflow settings open with Escape and apply inclusive/exclusive octave ranges', async ({ page }) => {
+test('octave endpoint inputs filter digits and apply the playable range on Enter or blur', async ({ page }) => {
   await page.keyboard.press('Escape');
-  await expect(page.getByRole('region', { name: 'Settings', exact: true })).toBeVisible();
-  const editRange = async (value: string) => {
-    await page.getByRole('button', { name: 'Octave range', exact: true }).click();
-    await page.getByRole('textbox', { name: 'Octave range', exact: true }).fill(value);
-    await page.keyboard.press('Escape');
-  };
-  await editRange('[2,4]');
-  await expect(page.getByRole('main')).toHaveAttribute('data-range', '[2,4]');
-  await expect(page.locator('.piano-cell')).toHaveCount(36);
-  await editRange('(2,4)');
-  await expect(page.getByRole('main')).toHaveAttribute('data-range', '(2,4)');
-  await expect(page.locator('.piano-cell')).toHaveCount(12);
-  await editRange('[4,2]');
+  const lower = page.getByRole('textbox', { name: 'First octave (included)' });
+  const upper = page.getByRole('textbox', { name: 'Last octave (excluded)' });
+  await expect(lower).toHaveValue('0');
+  await expect(upper).toHaveValue('8');
+  await lower.fill('6');
+  await lower.press('Enter');
+  await expect(page.getByRole('main')).toHaveAttribute('data-range', '[6,8)');
+  await expect(page.locator('.piano-cell')).toHaveCount(24);
+  expect(await page.locator('.piano-row').first().locator('.piano-cell').evaluateAll((cells) => cells.map((cell) => cell.getAttribute('data-note'))))
+    .toEqual(['6-0', '7-0']);
+  expect(await page.locator('.piano-cell').evaluateAll((cells) => [...new Set(cells.map((cell) => cell.getAttribute('data-note')!.split('-')[0]))]))
+    .toEqual(['6', '7']);
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.locator('[data-note="7-11"] button').click({ delay: 100 });
+  await expect.poll(() => page.evaluate(() => (window as any).__audioProbe.starts.length)).toBe(1);
+  expect(await page.evaluate(() => (window as any).__audioProbe.starts[0].rate)).toBeCloseTo(2 ** (8 / 12));
+  await page.keyboard.press('Escape');
+  await lower.fill('a0b');
+  await expect(lower).toHaveValue('0');
+  await lower.press('Enter');
+  await upper.fill('4');
+  await upper.press('Tab');
+  await expect(page.getByRole('main')).toHaveAttribute('data-range', '[0,4)');
+  await expect(page.locator('.piano-cell')).toHaveCount(48);
+  await upper.fill('0');
+  await upper.press('Enter');
   await expect(page.getByRole('alert')).toBeVisible();
-  await expect(page.locator('.piano-cell')).toHaveCount(12);
-  await editRange('[0,8)');
+  await expect(page.locator('.piano-cell')).toHaveCount(48);
+  await upper.fill('8');
+  await upper.press('Enter');
   await expect(page.locator('.piano-cell')).toHaveCount(96);
-  await page.keyboard.press('Escape');
-  await expect(page.getByRole('region', { name: 'Settings', exact: true })).toHaveCount(0);
+  await lower.fill('6');
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await expect(page.getByRole('main')).toHaveAttribute('data-range', '[6,8)');
+  await expect(page.locator('.piano-cell')).toHaveCount(24);
 });
 
 test('Keyflow instrument choices load violin, cello and flute with sustained playback', async ({ page }) => {
@@ -222,6 +238,29 @@ test('mouse glides through notes while pressed, then releasing or leaving stops 
   await page.mouse.move(a.x, a.y);
   await expect(page.locator('.sounding')).toHaveCount(0);
   expect(await page.evaluate(() => (window as any).__audioProbe.starts.length)).toBe(count);
+});
+
+test('selection policy blocks page and grid highlighting while settings text remains selectable', async ({ page }) => {
+  const box = (await page.locator('[data-note="4-4"] button').boundingBox())!;
+  await page.mouse.move(1000, 10);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 20 });
+  await expect(page.locator('[data-note="4-4"]')).toHaveClass(/sounding/);
+  await page.mouse.up();
+  expect(await page.evaluate(() => window.getSelection()?.toString())).toBe('');
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+  expect(await page.evaluate(() => window.getSelection()?.toString())).toBe('');
+  await page.keyboard.press('Escape');
+  const text = (await page.getByText('Octave range', { exact: true }).boundingBox())!;
+  await page.mouse.move(text.x + 1, text.y + text.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(text.x + text.width - 1, text.y + text.height / 2, { steps: 10 });
+  await page.mouse.up();
+  expect((await page.evaluate(() => window.getSelection()?.toString()))!.length).toBeGreaterThan(0);
+  const lower = page.getByRole('textbox', { name: 'First octave (included)' });
+  await lower.focus();
+  await lower.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+  expect(await lower.evaluate((input) => (input as HTMLInputElement).selectionEnd! - (input as HTMLInputElement).selectionStart!)).toBe(1);
 });
 
 test('touch glides across keys under implicit capture and stops on lift', async ({ page, context }) => {
