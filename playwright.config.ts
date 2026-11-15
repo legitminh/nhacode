@@ -7,6 +7,7 @@ export default defineConfig({
   fullyParallel: false,
   use: {
     browserName,
+    hasTouch: browserName === 'webkit',
     baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:5173/',
     channel: browserName === 'chromium' && !process.env.CI && !process.env.CHROME_PATH ? 'chrome' : undefined,
     launchOptions: browserName === 'chromium' && process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {},

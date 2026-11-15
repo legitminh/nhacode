@@ -26,7 +26,7 @@
       if (!lower || !upper) throw new Error('Enter both octave endpoints.');
       const value = `[${Number(lower)},${Number(upper)})`;
       const octaves = parseOctaveRange(value);
-      onrange(value, octaves);
+      if (value !== range) onrange(value, octaves);
       rangeError = '';
     } catch (cause) {
       rangeError = cause instanceof Error ? cause.message : 'Invalid octave range.';
@@ -45,6 +45,9 @@
     if (event.key === 'Enter') {
       event.preventDefault();
       applyRange();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      (event.currentTarget as HTMLInputElement).blur();
     }
   }
 </script>
@@ -62,18 +65,20 @@
         <circle cx="12" cy="12.2" r="3" />
       </svg>
     {/snippet}
-    {#snippet children()}
+    {#snippet children(menu)}
       <SubKeyframe label={`Instrument: ${instrument.name}`} items={choices} class="instrument-select" />
       <div class="octave-range">
         <span>Octave range</span>
         <div class="range-endpoints">
           <span aria-hidden="true">[</span>
           <input aria-label="First octave (included)" type="text" inputmode="numeric" pattern="[0-9]*"
-            autocomplete="off" spellcheck={false} value={lower} use:interaction
+            enterkeyhint="done" autocomplete="off" spellcheck={false} value={lower} disabled={!menu.active}
+            use:interaction={{ disabled: !menu.active }}
             oninput={(event) => digits(event, 'lower')} onkeydown={confirm} onblur={applyRange} />
           <span aria-hidden="true">,</span>
           <input aria-label="Last octave (excluded)" type="text" inputmode="numeric" pattern="[0-9]*"
-            autocomplete="off" spellcheck={false} value={upper} use:interaction
+            enterkeyhint="done" autocomplete="off" spellcheck={false} value={upper} disabled={!menu.active}
+            use:interaction={{ disabled: !menu.active }}
             oninput={(event) => digits(event, 'upper')} onkeydown={confirm} onblur={applyRange} />
           <span aria-hidden="true">)</span>
         </div>

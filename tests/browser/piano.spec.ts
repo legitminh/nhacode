@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator } from '@playwright/test';
 
 // Observe the real Web Audio graph rather than substituting a mock instrument.
 test.beforeEach(async ({ page }) => {
@@ -128,7 +128,8 @@ test('settings transposes display while preserving pitches and releases active n
   await expect(page.getByRole('region', { name: 'Settings', exact: true })).toHaveCount(0);
 });
 
-test('octave endpoint inputs filter digits and apply the playable range on Enter or blur', async ({ page }) => {
+test('octave endpoint inputs filter digits and apply the playable range on Enter or blur', async ({ page, browserName }) => {
+  const activate = (locator: Locator) => browserName === 'webkit' ? locator.tap() : locator.click();
   await page.keyboard.press('Escape');
   const lower = page.getByRole('textbox', { name: 'First octave (included)' });
   const upper = page.getByRole('textbox', { name: 'Last octave (excluded)' });
@@ -142,10 +143,11 @@ test('octave endpoint inputs filter digits and apply the playable range on Enter
     .toEqual(['6-0', '7-0']);
   expect(await page.locator('.piano-cell').evaluateAll((cells) => [...new Set(cells.map((cell) => cell.getAttribute('data-note')!.split('-')[0]))]))
     .toEqual(['6', '7']);
-  await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  await page.locator('[data-note="7-11"] button').click({ delay: 100 });
+  await activate(page.getByRole('button', { name: 'Settings', exact: true }));
+  await activate(page.locator('[data-note="7-11"] button'));
   await expect.poll(() => page.evaluate(() => (window as any).__audioProbe.starts.length)).toBe(1);
   expect(await page.evaluate(() => (window as any).__audioProbe.starts[0].rate)).toBeCloseTo(2 ** (8 / 12));
+  await page.screenshot({ path: 'test-results/nhacode-range-6-8.png' });
   await page.keyboard.press('Escape');
   await lower.fill('a0b');
   await expect(lower).toHaveValue('0');
@@ -162,7 +164,7 @@ test('octave endpoint inputs filter digits and apply the playable range on Enter
   await upper.press('Enter');
   await expect(page.locator('.piano-cell')).toHaveCount(96);
   await lower.fill('6');
-  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await activate(page.getByRole('button', { name: 'Settings', exact: true }));
   await expect(page.getByRole('main')).toHaveAttribute('data-range', '[6,8)');
   await expect(page.locator('.piano-cell')).toHaveCount(24);
 });
@@ -250,11 +252,15 @@ test('selection policy blocks page and grid highlighting while settings text rem
   expect(await page.evaluate(() => window.getSelection()?.toString())).toBe('');
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
   expect(await page.evaluate(() => window.getSelection()?.toString())).toBe('');
+  // Chromium retains a hidden select-all range; clear it before testing a new
+  // settings selection so the next gesture isn't a drag of that existing range.
+  await page.evaluate(() => window.getSelection()?.removeAllRanges());
   await page.keyboard.press('Escape');
   const text = (await page.getByText('Octave range', { exact: true }).boundingBox())!;
   await page.mouse.move(text.x + 1, text.y + text.height / 2);
   await page.mouse.down();
   await page.mouse.move(text.x + text.width - 1, text.y + text.height / 2, { steps: 10 });
+  await expect.poll(() => page.evaluate(() => window.getSelection()?.toString().length ?? 0)).toBeGreaterThan(0);
   await page.mouse.up();
   expect((await page.evaluate(() => window.getSelection()?.toString()))!.length).toBeGreaterThan(0);
   const lower = page.getByRole('textbox', { name: 'First octave (included)' });

@@ -42,10 +42,15 @@ jobs:
         run: npm test
 
       - name: Install browser
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium webkit
 
       - name: Test piano in browser
         run: npm run test:browser
+
+      - name: Test WebKit mobile audio and endpoint inputs
+        env:
+          PLAYWRIGHT_BROWSER: webkit
+        run: npm run test:browser -- -g 'mobile audio|octave endpoint'
 
       - name: Build for GitHub Pages
         env:

@@ -25,19 +25,26 @@ Requires Node 22.18+ (Node 24 recommended). Open the local URL printed by Vite.
   Hovering without pressing is silent.
 - The settings icon at the top left opens with a click or **Escape**; its shortcut
   appears on hover or keyboard focus. It contains instrument, octave-range and
-  transpose controls, implemented with Keyflow's `SubKeyframe` and `TextBox`.
+  transpose controls, implemented with Keyflow's `SubKeyframe` and interaction action.
 - In the default
   layout, each octave runs down a column. Transposed, the twelve notes run left
   to right, and higher octaves follow in rows below. The pitches stay unchanged.
-- The octave range defaults to **[0,8)**: include octave 0, exclude octave 8.
-  Brackets include endpoints and parentheses exclude them; `[2,4]` selects 2, 3
-  and 4, while `(2,4)` selects only 3. Endpoints may be 0 through 8; empty or
-  malformed intervals leave the previous range intact. Escape exits the editor
-  and applies a valid range. Escape/Back returns one menu level at a time.
+- The octave range has two digit-only endpoint fields and uses **[start,end)**:
+  include the first octave, exclude the last. It defaults to **[0,8)**. Press
+  Enter or leave a field to apply the range immediately. **[6,8)** renders only
+  two octave columns, 6 and 7 (or two rows when transposed). Endpoints may be 0
+  through 8; an invalid or empty interval leaves the previous range intact.
+  Escape leaves an endpoint field; Escape/Back then returns one menu level.
+- The play area cannot be text-selected. Settings text and endpoint fields
+  remain selectable for copying and editing.
 - Tab to a note and hold **Enter** or **Space** for Keyflow's native keyboard
   activation. Keyflow also owns menu shortcuts, navigation and focus restoration.
-- Audio unlocks on the first press. Samples preload in the background; a later key
+- Audio unlocks on a user gesture. Samples preload in the background; a later key
   press retries after a loading failure. Leaving the window stops held notes.
+  On supported platforms the engine requests a playback audio session, activating
+  the system-selected output route instead of relying on another Safari page to
+  initialize it. Touch release and click retry activation for stricter iOS gesture
+  policies. Headphone pairing and output-device selection remain system settings.
 
 ### Octave convention
 
@@ -69,8 +76,8 @@ upstream revision and parses the data without evaluating downloaded JavaScript.
 
 ## Keyflow
 
-Version **0.6.0**, latest release verified on 2026-11-14, from upstream revision
-`1842810e87f9fc4b62d488eeaddce4050ae81294`.
+Version **0.7.0**, latest release verified on 2026-11-15, from upstream revision
+`dc0c68a65ea1bf8a2721b13403d4e303e9b02e82`.
 The official release archive is committed in `vendor/` and locked in
 `package-lock.json`, so a clean checkout needs no Keyflow source build.
 Source: https://github.com/legitminh/keyflow
@@ -80,7 +87,9 @@ Keyflow handles mouse/pen tracking, touch hit testing under implicit capture,
 contact aggregation, cancellation and native keyboard activation. Its interaction
 action ends a mouse hold even after gliding away from the key where it began.
 `SubKeyframe` owns settings and instrument dropdown frames, item buttons, outside
-dismissal, Back/Escape behavior and focus restoration. The app adds no DOM input
+dismissal, Back/Escape behavior and focus restoration. Native single-line endpoint
+inputs use Keyflow's interaction action and menu activation state; input handlers
+filter digits and commit on Enter/blur. The app adds no document/window input
 listeners or custom button gesture implementation.
 
 ## Validation
@@ -98,6 +107,10 @@ Audio output for each instrument, note onset before release, mouse/finger glidin
 touch chords and cancellation, pitch shifting, focus loss, octave intervals,
 nested menus, hover shortcuts and no-scroll layouts at desktop,
 mobile and landscape dimensions. `npm run build` produces a static site in `dist/`.
+Use `PLAYWRIGHT_BROWSER=webkit npm run test:browser -- -g 'mobile audio|octave endpoint'`
+to run the Safari-engine touch tests. CI runs these alongside the full Chromium
+suite, including its mouse-selection and glide checks. These checks do
+not emulate physical iOS headphone routing; that still requires an iPhone/iPad.
 
 ## Deployment
 

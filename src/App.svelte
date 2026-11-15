@@ -95,6 +95,7 @@
   }
 
   function pointerUp(event: InteractionEvent) {
+    if (!event.cancelled) activateAudio();
     if (event.source === 'pointer' && event.pointer_type !== 'touch') {
       mouseDown = false;
       releaseMouse();
