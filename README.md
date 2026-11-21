@@ -75,6 +75,8 @@ The sheet has no stave; it only shows which key is pressed when:
   colored with Keyflow's `distribute_color` by index: the thick origin line is 0,
   the line above octave n is n (the same hues as digits 0–b).
 - Measures wrap to a new stream at the screen edge.
+- **Settings → Sheet lines** sets the stroke width of the thick origin line and the
+  thin octave lines (0.5 px steps, 0.5–8 px).
 - The sheet sits in Keyflow's `Document`. **Settings → Lockstep scrolling** switches
   between native scrolling and Keyflow's lockstep paging (wheel, swipe, or the ↓/↑
   buttons move one page, landing on a stream's top). Keyflow remembers the mode.
@@ -91,6 +93,17 @@ python3 scripts/pdmx.py simplify fur-elise "Für Elise"
 ```
 
 Repeats are shown as written, not unrolled. Grace notes are omitted.
+
+### Saved settings
+
+Every setting (views, song, instrument, octave range, transpose, margins, sheet
+line widths, min-box and lockstep scrolling) is stored in `localStorage` under
+`nhacode:`, which an installed PWA keeps across launches. On start the app calls
+`navigator.storage.persist()` so the browser does not evict that storage;
+`<html data-storage>` reports `persistent` or `best-effort`. Keyflow 0.7 itself
+writes its preferences to `sessionStorage`, so `src/lib/preferences.ts` mirrors
+min-box, lockstep and theme into `localStorage` and seeds them back before
+Keyflow starts.
 
 ### Octave convention
 

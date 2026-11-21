@@ -115,3 +115,28 @@ test('Settings switches the sheet between native and Keyflow lockstep scrolling'
   await page.reload();
   await expect(world).toHaveAttribute('style', /translateY/); // Keyflow remembers the mode
 });
+
+test('sheet line widths are adjustable and every setting survives closing the app', async ({ page, context }) => {
+  await page.getByRole('button', { name: /^Sheet/ }).click();
+  await page.getByRole('button', { name: /Settings/ }).click();
+  await page.getByRole('button', { name: /Decrease/ }).click();
+  await page.getByRole('button', { name: /Lockstep scrolling: Off/ }).click();
+  await page.getByRole('button', { name: /Transpose display: Off/ }).click();
+  await page.getByRole('button', { name: /Sheet lines/ }).click();
+  await page.getByRole('button', { name: '+ origin line width' }).click();
+  await page.getByRole('button', { name: '− octave line width' }).click();
+  await expect(page.locator('.octave-zero').first()).toHaveAttribute('stroke-width', '3.5');
+  await expect(page.locator('.octave-line').first()).toHaveAttribute('stroke-width', '1');
+
+  // A new window has empty sessionStorage, like relaunching the installed PWA.
+  await page.close();
+  const next = await context.newPage();
+  await next.goto('./');
+  await expect(next.getByRole('main')).toHaveAttribute('data-views', 'keyboard sheet');
+  await expect(next.locator('main')).toHaveClass(/transposed/);
+  await expect(next.locator('.octave-zero').first()).toHaveAttribute('stroke-width', '3.5');
+  await expect(next.locator('.octave-line').first()).toHaveAttribute('stroke-width', '1');
+  await expect(next.locator('.sheet-scroll .world')).toHaveAttribute('style', /translateY/);
+  expect(await next.evaluate(() => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--min-box')))).toBeCloseTo(38.4);
+  await expect(next.locator('html')).toHaveAttribute('data-storage', /persistent|best-effort/);
+});

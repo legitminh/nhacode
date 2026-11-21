@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import { Keyflow, KeyboardDisplay, interaction, type InteractionEvent } from '@legitminh/keyflow';
+  import { Keyflow, KeyboardDisplay, interaction, lockstep_scrolling, min_box, type InteractionEvent } from '@legitminh/keyflow';
   import PianoKey from './lib/PianoKey.svelte';
   import Settings from './lib/Settings.svelte';
   import ViewToggle from './lib/ViewToggle.svelte';
@@ -12,20 +12,28 @@
   import { instruments } from './lib/audio/instruments';
   import type { InstrumentDefinition } from './lib/audio/types';
   import { clampMargin, loadMargins, saveMargins, type Side } from './lib/margins';
+  import { clampLine, loadLineWidths, saveLineWidths, type LineWidths } from './lib/sheet/lines';
+  import { isBoolean, isString, readPref, saveKeyflowPreference, writePref } from './lib/preferences';
 
-  const engine = new AudioEngine(instruments[0]);
+  // Every user setting is read from, and written to, permanent browser storage.
+  const savedInstrument = instruments.find((item) => item.id === readPref('instrument', '', isString)) ?? instruments[0];
+  const savedRange = readPref('range', '[0,8)', (value): value is string => {
+    try { return isString(value) && parseOctaveRange(value).length > 0; } catch { return false; }
+  });
+  const engine = new AudioEngine(savedInstrument);
   let held = $state(new Map<string, PianoNote>());
   let mouseDown = $state(false);
-  let instrumentId = $state(instruments[0].id);
-  let range = $state('[0,8)');
-  let octaves = $state(parseOctaveRange('[0,8)'));
+  let instrumentId = $state(savedInstrument.id);
+  let range = $state(savedRange);
+  let octaves = $state(parseOctaveRange(savedRange));
   let status = $state<'loading' | 'ready' | 'playing' | 'error'>('loading');
   let settingsOpen = $state(false);
-  let transposed = $state(false);
-  let showKeyboard = $state(remembered('keyboard', true));
-  let showSheet = $state(remembered('sheet', false));
+  let transposed = $state(readPref('transposed', false, isBoolean));
+  let showKeyboard = $state(readPref('view:keyboard', true, isBoolean));
+  let showSheet = $state(readPref('view:sheet', false, isBoolean));
   let margins = $state(loadMargins());
-  let songId = $state(rememberedText('song', songs[0]?.id ?? ''));
+  let lineWidths = $state(loadLineWidths());
+  let songId = $state(readPref('song', songs[0]?.id ?? '', (value): value is string => songs.some((song) => song.id === value)));
   let generation = 0;
   const noteRows = $derived(NOTE_NAMES.map((_, row) => octaves.map((octave) => noteAt(octave, row))));
   const displayRows = $derived(transposed
@@ -33,6 +41,9 @@
     : noteRows);
   const sounding = $derived(new Set([...held.values()].map((note) => note.id)));
   $effect(() => { if (settingsOpen) stopAll(); });
+  // Keyflow keeps these in sessionStorage; mirror them so they survive closing the app.
+  $effect(() => saveKeyflowPreference('min_box', String(min_box.value)));
+  $effect(() => saveKeyflowPreference('lockstep_scrolling', String(lockstep_scrolling.enabled)));
 
   async function prepare(definition?: InstrumentDefinition) {
     const request = ++generation;
@@ -86,6 +97,7 @@
   function selectInstrument(id: string) {
     stopAll();
     instrumentId = id;
+    writePref('instrument', id);
     void prepare(instruments.find((item) => item.id === id)!);
   }
 
@@ -93,6 +105,7 @@
     stopAll();
     range = value;
     octaves = selected;
+    writePref('range', value);
   }
 
   function releaseMouse() {
@@ -111,17 +124,6 @@
     }
   }
 
-  function remembered(view: string, fallback: boolean) {
-    try {
-      const value = localStorage.getItem(`nhacode:view:${view}`);
-      return value === null ? fallback : value === '1';
-    } catch { return fallback; }
-  }
-
-  function rememberedText(name: string, fallback: string) {
-    try { return localStorage.getItem(`nhacode:${name}`) ?? fallback; } catch { return fallback; }
-  }
-
   function setMargin(side: Side, value: number) {
     margins = { ...margins, [side]: clampMargin(value) };
     saveMargins(margins);
@@ -129,13 +131,24 @@
 
   function selectSong(id: string) {
     songId = id;
-    try { localStorage.setItem('nhacode:song', id); } catch {}
+    writePref('song', id);
   }
 
   function toggleView(view: 'keyboard' | 'sheet') {
     if (view === 'keyboard') { stopAll(); showKeyboard = !showKeyboard; }
     else showSheet = !showSheet;
-    try { localStorage.setItem(`nhacode:view:${view}`, (view === 'keyboard' ? showKeyboard : showSheet) ? '1' : '0'); } catch {}
+    writePref(`view:${view}`, view === 'keyboard' ? showKeyboard : showSheet);
+  }
+
+  function setTransposed(value: boolean) {
+    stopAll();
+    transposed = value;
+    writePref('transposed', value);
+  }
+
+  function setLineWidth(line: keyof LineWidths, value: number) {
+    lineWidths = { ...lineWidths, [line]: clampLine(value) };
+    saveLineWidths(lineWidths);
   }
 
   onMount(() => { void prepare(); });
@@ -153,8 +166,8 @@
     style:--rows={transposed ? octaves.length : 12} style:--columns={transposed ? 12 : octaves.length}>
     <div class="settings-bar">
       <Settings bind:open={settingsOpen} {transposed} {instrumentId} {range}
-        ontranspose={(value) => { stopAll(); transposed = value; }} oninstrument={selectInstrument} onrange={selectRange}
-        {margins} onmargin={setMargin} />
+        ontranspose={setTransposed} oninstrument={selectInstrument} onrange={selectRange}
+        {margins} onmargin={setMargin} {lineWidths} online={setLineWidth} />
       <ViewToggle label="Sheet" shortcut="s" on={showSheet} disabled={settingsOpen} ontoggle={() => toggleView('sheet')}>sheet</ViewToggle>
       <ViewToggle label="Keyboard" shortcut="k" on={showKeyboard} disabled={settingsOpen} ontoggle={() => toggleView('keyboard')}>
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
@@ -181,7 +194,7 @@
         </section>
       {/if}
       {#if showSheet}
-        <div class="sheet-view"><Sheet {songId} /></div>
+        <div class="sheet-view"><Sheet {songId} {lineWidths} /></div>
       {/if}
     </div>
   </main>

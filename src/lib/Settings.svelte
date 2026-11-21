@@ -3,9 +3,10 @@
   import { instruments } from './audio/instruments';
   import { parseOctaveRange } from './notes';
   import { MARGIN_MAX, MARGIN_STEP, SIDES, type Margins, type Side } from './margins';
+  import { LINE_MAX, LINE_MIN, LINE_STEP, type LineWidths } from './sheet/lines';
 
-  let { open = $bindable(false), transposed, instrumentId, range, margins,
-    ontranspose, oninstrument, onrange, onmargin }: {
+  let { open = $bindable(false), transposed, instrumentId, range, margins, lineWidths,
+    ontranspose, oninstrument, onrange, onmargin, online }: {
     open?: boolean;
     transposed: boolean;
     instrumentId: string;
@@ -15,8 +16,11 @@
     onrange: (value: string, octaves: number[]) => void;
     margins: Margins;
     onmargin: (side: Side, value: number) => void;
+    lineWidths: LineWidths;
+    online: (line: keyof LineWidths, value: number) => void;
   } = $props();
   const sideName = (side: Side) => side[0].toUpperCase() + side.slice(1);
+  const LINES = [['origin', 'Origin line'], ['octave', 'Octave lines']] as const;
   let lower = $state('0');
   let upper = $state('8');
   let rangeError = $state('');
@@ -107,6 +111,19 @@
                 >−<span class="visually-hidden"> {side} margin</span></Button>
               <Button on_close={() => onmargin(side, margins[side] + MARGIN_STEP)} disabled={margins[side] >= MARGIN_MAX}
                 >+<span class="visually-hidden"> {side} margin</span></Button>
+            </div>
+          {/each}
+        {/snippet}
+      </SubKeyframe>
+      <SubKeyframe label={`Sheet lines: ${lineWidths.origin} ${lineWidths.octave}`} class="margin-menu">
+        {#snippet children()}
+          {#each LINES as [line, name]}
+            <div class="margin-setting" data-line={line}>
+              <span>{name}: {lineWidths[line]}px</span>
+              <Button on_close={() => online(line, lineWidths[line] - LINE_STEP)} disabled={lineWidths[line] <= LINE_MIN}
+                >−<span class="visually-hidden"> {line} line width</span></Button>
+              <Button on_close={() => online(line, lineWidths[line] + LINE_STEP)} disabled={lineWidths[line] >= LINE_MAX}
+                >+<span class="visually-hidden"> {line} line width</span></Button>
             </div>
           {/each}
         {/snippet}

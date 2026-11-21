@@ -5,13 +5,15 @@
   import { octaveLineColor, pitchColor } from '../colors';
 
   const files = import.meta.glob<Song>(['../../songs/*.json', '!../../songs/index.json'], { import: 'default' });
-  let { songId }: { songId: string } = $props();
+  import type { LineWidths } from './lines';
+
+  let { songId, lineWidths }: { songId: string; lineWidths: LineWidths } = $props();
 
   // Sizes follow Keyflow's min-box: a row is one box tall, a time frame is half a box
   // (one monospace glyph at 0.8 box), and an octave line takes an eighth of a box.
   const ROW = $derived(min_box.value);
   const CELL = $derived(min_box.value / 2);
-  const GAP = $derived(Math.max(4, min_box.value / 8));
+  const GAP = $derived(Math.max(4, min_box.value / 8, lineWidths.origin + 2, lineWidths.octave + 2));
 
   let song = $state<Song | undefined>();
   let error = $state('');
@@ -73,14 +75,15 @@
           <svg class="sheet-stream" data-stream={index} width={stream.frames * CELL} height={height}
             viewBox={`0 0 ${stream.frames * CELL} ${height}`} role="img"
             aria-label={`Measures ${stream.measures[0].number} to ${stream.measures.at(-1)!.number}`}>
-            <line class="octave-zero" data-line="0" style:stroke={octaveLineColor(0)} x1="0" x2={stream.frames * CELL} y1="1.5" y2="1.5" />
+            <line class="octave-zero" data-line="0" style:stroke={octaveLineColor(0)} x1="0" x2={stream.frames * CELL}
+              y1={lineWidths.origin / 2} y2={lineWidths.origin / 2} stroke-width={lineWidths.origin} />
             {#each stream.measures as measure, m}
               <g class="sheet-measure" data-measure={measure.number} transform={`translate(${xs[m]} 0)`}>
                 {#if m > 0}<line class="barline" x1="0" x2="0" y1="0" y2={height} />{/if}
                 {#each stream.lanes as _, octave}
                   {#if octave > 0}
                     {#each lineRuns(measure, octave) as [from, to]}
-                      <line class="octave-line" data-octave={octave} data-line={octave} style:stroke={octaveLineColor(octave)} x1={from * CELL + 1} x2={to * CELL - 1}
+                      <line class="octave-line" data-octave={octave} data-line={octave} style:stroke={octaveLineColor(octave)} stroke-width={lineWidths.octave} x1={from * CELL + 1} x2={to * CELL - 1}
                         y1={blockTop(stream, octave) - GAP / 2} y2={blockTop(stream, octave) - GAP / 2} />
                     {/each}
                   {/if}
@@ -128,8 +131,7 @@
   }
   .sheet-streams { display: flex; flex-direction: column; gap: calc(var(--min-box) / 2); padding-bottom: var(--min-box); }
   .sheet-stream { display: block; overflow: visible; }
-  .octave-zero { stroke: currentColor; stroke-width: 3; }
-  .octave-line { stroke: currentColor; stroke-width: 1.5; }
+  .octave-zero, .octave-line { stroke: currentColor; }
   .barline { stroke: var(--tertiary); stroke-width: 1; }
   .hold { stroke: currentColor; stroke-width: 1.5; }
   .sheet-note {
