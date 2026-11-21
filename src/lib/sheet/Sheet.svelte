@@ -2,7 +2,7 @@
   import { Document, min_box, must_view } from '@legitminh/keyflow';
   import { layoutMeasure, layoutStreams, type MeasureLayout, type StreamLayout } from './layout';
   import type { Song } from './types';
-  import { pitchColor } from '../colors';
+  import { octaveLineColor, pitchColor } from '../colors';
 
   const files = import.meta.glob<Song>(['../../songs/*.json', '!../../songs/index.json'], { import: 'default' });
   let { songId }: { songId: string } = $props();
@@ -73,14 +73,14 @@
           <svg class="sheet-stream" data-stream={index} width={stream.frames * CELL} height={height}
             viewBox={`0 0 ${stream.frames * CELL} ${height}`} role="img"
             aria-label={`Measures ${stream.measures[0].number} to ${stream.measures.at(-1)!.number}`}>
-            <line class="octave-zero" x1="0" x2={stream.frames * CELL} y1="1.5" y2="1.5" />
+            <line class="octave-zero" data-line="0" style:stroke={octaveLineColor(0)} x1="0" x2={stream.frames * CELL} y1="1.5" y2="1.5" />
             {#each stream.measures as measure, m}
               <g class="sheet-measure" data-measure={measure.number} transform={`translate(${xs[m]} 0)`}>
                 {#if m > 0}<line class="barline" x1="0" x2="0" y1="0" y2={height} />{/if}
                 {#each stream.lanes as _, octave}
                   {#if octave > 0}
                     {#each lineRuns(measure, octave) as [from, to]}
-                      <line class="octave-line" data-octave={octave} x1={from * CELL + 1} x2={to * CELL - 1}
+                      <line class="octave-line" data-octave={octave} data-line={octave} style:stroke={octaveLineColor(octave)} x1={from * CELL + 1} x2={to * CELL - 1}
                         y1={blockTop(stream, octave) - GAP / 2} y2={blockTop(stream, octave) - GAP / 2} />
                     {/each}
                   {/if}
@@ -129,7 +129,7 @@
   .sheet-streams { display: flex; flex-direction: column; gap: calc(var(--min-box) / 2); padding-bottom: var(--min-box); }
   .sheet-stream { display: block; overflow: visible; }
   .octave-zero { stroke: currentColor; stroke-width: 3; }
-  .octave-line { stroke: currentColor; stroke-width: 1; }
+  .octave-line { stroke: currentColor; stroke-width: 1.5; }
   .barline { stroke: var(--tertiary); stroke-width: 1; }
   .hold { stroke: currentColor; stroke-width: 1.5; }
   .sheet-note {

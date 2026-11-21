@@ -35,6 +35,11 @@ test('Für Elise renders as wrapped streams of hex digits with octave lines', as
   const first = page.locator('.sheet-measure').first();
   expect(await first.locator('.sheet-note').allTextContents()).toEqual(expect.arrayContaining(['7', '6']));
   await expect(first.locator('.octave-line[data-octave="4"]')).not.toHaveCount(0);
+  // Lines take Keyflow's distribute_color by index: origin is 0, the line above octave n is n.
+  const strokes = await page.locator('.sheet-stream').first().evaluate((svg) => Object.fromEntries(
+    [...svg.querySelectorAll('[data-line]')].map((line) => [line.getAttribute('data-line'), getComputedStyle(line).stroke])));
+  expect(new Set(Object.values(strokes)).size).toBe(Object.keys(strokes).length);
+  expect(strokes['0']).toBe('rgb(182, 32, 32)'); // hue 0, same as digit 0
   for (const box of await streams.evaluateAll((items) => items.map((item) => item.getBoundingClientRect().right))) {
     expect(box).toBeLessThanOrEqual(page.viewportSize()!.width);
   }

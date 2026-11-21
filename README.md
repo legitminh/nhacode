@@ -71,7 +71,9 @@ The sheet has no stave; it only shows which key is pressed when:
   don't overlap share a row.
 - Each stream (line of measures) starts with one thick line above octave 0. Each
   higher octave adds a thin line above its block, drawn only over the frames that
-  reach that octave, so the number of lines above a digit is its octave.
+  reach that octave, so the number of lines above a digit is its octave. Lines are
+  colored with Keyflow's `distribute_color` by index: the thick origin line is 0,
+  the line above octave n is n (the same hues as digits 0–b).
 - Measures wrap to a new stream at the screen edge.
 - The sheet sits in Keyflow's `Document`. **Settings → Lockstep scrolling** switches
   between native scrolling and Keyflow's lockstep paging (wheel, swipe, or the ↓/↑
