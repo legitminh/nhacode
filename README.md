@@ -27,9 +27,8 @@ Requires Node 22.18+ (Node 24 recommended). Open the local URL printed by Vite.
 - Every font size follows Keyflow's `--min-box` (glyphs at 0.8 box, one box per
   line). **Settings → Min box** has Increase and Decrease buttons that scale it by
   1.25, like Keyflow's zoom, between 12 and 160 px; Keyflow remembers the value.
-- **Settings → Keyboard margins** sets the keyboard's top, right, bottom and left
-  margins with − and + buttons (8 px per press, 0–480 px). Keys shrink to fit
-  inside the margins, and the margins are remembered per browser.
+- **Settings → Keyboard margins** has number fields for the top, right, bottom
+  and left margins, in min-box units (0–10, step 0.25). Keys shrink to fit.
 - The settings icon at the top left opens with a click or **Escape**; its shortcut
   appears on hover or keyboard focus. It contains instrument, octave-range and
   transpose controls, implemented with Keyflow's `SubKeyframe` and interaction action.
@@ -75,8 +74,8 @@ The sheet has no stave; it only shows which key is pressed when:
   colored with Keyflow's `distribute_color` by index: the thick origin line is 0,
   the line above octave n is n (the same hues as digits 0–b).
 - Measures wrap to a new stream at the screen edge.
-- **Settings → Sheet lines** sets the stroke width of the thick origin line and the
-  thin octave lines (0.5 px steps, 0.5–8 px).
+- **Settings → Sheet lines** has number fields for the origin line and octave line
+  stroke widths, in min-box units (0.01–0.25; defaults 0.06 and 0.03).
 - The sheet sits in Keyflow's `Document`. **Settings → Lockstep scrolling** switches
   between native scrolling and Keyflow's lockstep paging (wheel, swipe, or the ↓/↑
   buttons move one page, landing on a stream's top). Keyflow remembers the mode.

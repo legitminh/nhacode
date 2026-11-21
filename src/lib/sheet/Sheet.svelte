@@ -13,7 +13,9 @@
   // (one monospace glyph at 0.8 box), and an octave line takes an eighth of a box.
   const ROW = $derived(min_box.value);
   const CELL = $derived(min_box.value / 2);
-  const GAP = $derived(Math.max(4, min_box.value / 8, lineWidths.origin + 2, lineWidths.octave + 2));
+  const ORIGIN = $derived(lineWidths.origin * min_box.value);
+  const OCTAVE = $derived(lineWidths.octave * min_box.value);
+  const GAP = $derived(Math.max(4, min_box.value / 8, ORIGIN + 2, OCTAVE + 2));
 
   let song = $state<Song | undefined>();
   let error = $state('');
@@ -76,14 +78,14 @@
             viewBox={`0 0 ${stream.frames * CELL} ${height}`} role="img"
             aria-label={`Measures ${stream.measures[0].number} to ${stream.measures.at(-1)!.number}`}>
             <line class="octave-zero" data-line="0" style:stroke={octaveLineColor(0)} x1="0" x2={stream.frames * CELL}
-              y1={lineWidths.origin / 2} y2={lineWidths.origin / 2} stroke-width={lineWidths.origin} />
+              y1={ORIGIN / 2} y2={ORIGIN / 2} stroke-width={ORIGIN} />
             {#each stream.measures as measure, m}
               <g class="sheet-measure" data-measure={measure.number} transform={`translate(${xs[m]} 0)`}>
                 {#if m > 0}<line class="barline" x1="0" x2="0" y1="0" y2={height} />{/if}
                 {#each stream.lanes as _, octave}
                   {#if octave > 0}
                     {#each lineRuns(measure, octave) as [from, to]}
-                      <line class="octave-line" data-octave={octave} data-line={octave} style:stroke={octaveLineColor(octave)} stroke-width={lineWidths.octave} x1={from * CELL + 1} x2={to * CELL - 1}
+                      <line class="octave-line" data-octave={octave} data-line={octave} style:stroke={octaveLineColor(octave)} stroke-width={OCTAVE} x1={from * CELL + 1} x2={to * CELL - 1}
                         y1={blockTop(stream, octave) - GAP / 2} y2={blockTop(stream, octave) - GAP / 2} />
                     {/each}
                   {/if}

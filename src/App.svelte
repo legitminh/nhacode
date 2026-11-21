@@ -180,7 +180,7 @@
     <div class="views">
       {#if showKeyboard}
         <section class="keyboard-view" aria-label="Keyboard"
-          style:padding={`${margins.top}px ${margins.right}px ${margins.bottom}px ${margins.left}px`}>
+          style:padding={(['top', 'right', 'bottom', 'left'] as const).map((side) => `calc(var(--min-box) * ${margins[side]})`).join(' ')}>
           <KeyboardDisplay class="piano-matrix">
             {#each displayRows as row}
               <div class="piano-row">

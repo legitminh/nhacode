@@ -73,7 +73,7 @@ test('min-box increases and decreases like Keyflow and drives every font size', 
   expect((await sizes()).box).toBeCloseTo(38.4); // Keyflow saves min-box
 });
 
-test('song menu sits on the toolbar and keyboard margins step in Settings', async ({ page }) => {
+test('song menu sits on the toolbar and keyboard margins are min-box number fields', async ({ page }) => {
   await page.getByRole('button', { name: /^Sheet/ }).click();
   const song = (await page.getByRole('button', { name: /Song: Für Elise/ }).boundingBox())!;
   const settings = (await page.getByRole('button', { name: /Settings/ }).boundingBox())!;
@@ -81,9 +81,14 @@ test('song menu sits on the toolbar and keyboard margins step in Settings', asyn
 
   await page.getByRole('button', { name: /Settings/ }).click();
   await page.getByRole('button', { name: /Keyboard margins/ }).click();
-  for (let i = 0; i < 3; i++) await page.getByRole('button', { name: '+ left margin' }).click();
-  await page.getByRole('button', { name: '+ top margin' }).click();
-  await page.getByRole('button', { name: '− top margin' }).click();
+  const left = page.getByRole('spinbutton', { name: 'Left' });
+  await left.fill('0.5'); // half a min-box: 24px at the default 48px
+  await left.press('Enter');
+  const panel = (await page.locator('.settings-bar .settings-menu > .subkeyframe-panel').boundingBox())!;
+  for (const field of await page.locator('.box-input input').all()) {
+    const box = (await field.boundingBox())!;
+    expect(box.x + box.width).toBeLessThanOrEqual(panel.x + panel.width);
+  }
   const view = page.getByRole('region', { name: 'Keyboard', exact: true });
   await expect(view).toHaveCSS('padding', '0px 0px 0px 24px');
   await page.reload();
@@ -123,10 +128,13 @@ test('sheet line widths are adjustable and every setting survives closing the ap
   await page.getByRole('button', { name: /Lockstep scrolling: Off/ }).click();
   await page.getByRole('button', { name: /Transpose display: Off/ }).click();
   await page.getByRole('button', { name: /Sheet lines/ }).click();
-  await page.getByRole('button', { name: '+ origin line width' }).click();
-  await page.getByRole('button', { name: '− octave line width' }).click();
-  await expect(page.locator('.octave-zero').first()).toHaveAttribute('stroke-width', '3.5');
-  await expect(page.locator('.octave-line').first()).toHaveAttribute('stroke-width', '1');
+  await page.getByRole('spinbutton', { name: 'Origin line' }).fill('0.1');
+  await page.getByRole('spinbutton', { name: 'Octave lines' }).fill('0.05');
+  await page.getByRole('spinbutton', { name: 'Octave lines' }).blur();
+  const box = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--min-box')));
+  const width = async (p: typeof page, selector: string) => Number(await p.locator(selector).first().getAttribute('stroke-width'));
+  expect(await width(page, '.octave-zero')).toBeCloseTo(box * .1);
+  expect(await width(page, '.octave-line')).toBeCloseTo(box * .05);
 
   // A new window has empty sessionStorage, like relaunching the installed PWA.
   await page.close();
@@ -134,8 +142,9 @@ test('sheet line widths are adjustable and every setting survives closing the ap
   await next.goto('./');
   await expect(next.getByRole('main')).toHaveAttribute('data-views', 'keyboard sheet');
   await expect(next.locator('main')).toHaveClass(/transposed/);
-  await expect(next.locator('.octave-zero').first()).toHaveAttribute('stroke-width', '3.5');
-  await expect(next.locator('.octave-line').first()).toHaveAttribute('stroke-width', '1');
+  await expect(next.locator('.octave-zero').first()).toBeAttached();
+  expect(await width(next, '.octave-zero')).toBeCloseTo(box * .1);
+  expect(await width(next, '.octave-line')).toBeCloseTo(box * .05);
   await expect(next.locator('.sheet-scroll .world')).toHaveAttribute('style', /translateY/);
   expect(await next.evaluate(() => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--min-box')))).toBeCloseTo(38.4);
   await expect(next.locator('html')).toHaveAttribute('data-storage', /persistent|best-effort/);

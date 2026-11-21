@@ -4,6 +4,7 @@
   import { parseOctaveRange } from './notes';
   import { MARGIN_MAX, MARGIN_STEP, SIDES, type Margins, type Side } from './margins';
   import { LINE_MAX, LINE_MIN, LINE_STEP, type LineWidths } from './sheet/lines';
+  import BoxInput from './BoxInput.svelte';
 
   let { open = $bindable(false), transposed, instrumentId, range, margins, lineWidths,
     ontranspose, oninstrument, onrange, onmargin, online }: {
@@ -102,29 +103,19 @@
         <Button on_close={() => zoom(1)} disabled={min_box.value >= 160}>Increase</Button>
         <Button on_close={() => zoom(-1)} disabled={min_box.value <= 12}>Decrease</Button>
       </div>
-      <SubKeyframe label={`Keyboard margins: ${SIDES.map((side) => margins[side]).join(' ')}`} class="margin-menu">
-        {#snippet children()}
+      <SubKeyframe label="Keyboard margins" class="margin-menu">
+        {#snippet children(sub)}
           {#each SIDES as side}
-            <div class="margin-setting" data-side={side}>
-              <span>{sideName(side)}: {margins[side]}px</span>
-              <Button on_close={() => onmargin(side, margins[side] - MARGIN_STEP)} disabled={margins[side] <= 0}
-                >−<span class="visually-hidden"> {side} margin</span></Button>
-              <Button on_close={() => onmargin(side, margins[side] + MARGIN_STEP)} disabled={margins[side] >= MARGIN_MAX}
-                >+<span class="visually-hidden"> {side} margin</span></Button>
-            </div>
+            <BoxInput label={sideName(side)} value={margins[side]} min={0} max={MARGIN_MAX} step={MARGIN_STEP}
+              disabled={!sub.active} onchange={(value) => onmargin(side, value)} />
           {/each}
         {/snippet}
       </SubKeyframe>
-      <SubKeyframe label={`Sheet lines: ${lineWidths.origin} ${lineWidths.octave}`} class="margin-menu">
-        {#snippet children()}
+      <SubKeyframe label="Sheet lines" class="margin-menu">
+        {#snippet children(sub)}
           {#each LINES as [line, name]}
-            <div class="margin-setting" data-line={line}>
-              <span>{name}: {lineWidths[line]}px</span>
-              <Button on_close={() => online(line, lineWidths[line] - LINE_STEP)} disabled={lineWidths[line] <= LINE_MIN}
-                >−<span class="visually-hidden"> {line} line width</span></Button>
-              <Button on_close={() => online(line, lineWidths[line] + LINE_STEP)} disabled={lineWidths[line] >= LINE_MAX}
-                >+<span class="visually-hidden"> {line} line width</span></Button>
-            </div>
+            <BoxInput label={name} value={lineWidths[line]} min={LINE_MIN} max={LINE_MAX} step={LINE_STEP}
+              disabled={!sub.active} onchange={(value) => online(line, value)} />
           {/each}
         {/snippet}
       </SubKeyframe>
