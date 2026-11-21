@@ -3,6 +3,8 @@
   import { Keyflow, KeyboardDisplay, interaction, type InteractionEvent } from '@legitminh/keyflow';
   import PianoKey from './lib/PianoKey.svelte';
   import Settings from './lib/Settings.svelte';
+  import ViewToggle from './lib/ViewToggle.svelte';
+  import Sheet from './lib/sheet/Sheet.svelte';
   import { NOTE_NAMES, noteAt, parseOctaveRange, type PianoNote } from './lib/notes';
   import { AudioEngine } from './lib/audio/engine';
   import { instruments } from './lib/audio/instruments';
@@ -17,6 +19,8 @@
   let status = $state<'loading' | 'ready' | 'playing' | 'error'>('loading');
   let settingsOpen = $state(false);
   let transposed = $state(false);
+  let showKeyboard = $state(remembered('keyboard', true));
+  let showSheet = $state(remembered('sheet', false));
   let generation = 0;
   const noteRows = $derived(NOTE_NAMES.map((_, row) => octaves.map((octave) => noteAt(octave, row))));
   const displayRows = $derived(transposed
@@ -102,6 +106,19 @@
     }
   }
 
+  function remembered(view: string, fallback: boolean) {
+    try {
+      const value = localStorage.getItem(`nhacode:view:${view}`);
+      return value === null ? fallback : value === '1';
+    } catch { return fallback; }
+  }
+
+  function toggleView(view: 'keyboard' | 'sheet') {
+    if (view === 'keyboard') { stopAll(); showKeyboard = !showKeyboard; }
+    else showSheet = !showSheet;
+    try { localStorage.setItem(`nhacode:view:${view}`, (view === 'keyboard' ? showKeyboard : showSheet) ? '1' : '0'); } catch {}
+  }
+
   onMount(() => { void prepare(); });
   onDestroy(() => engine.dispose());
 </script>
@@ -111,20 +128,39 @@
 } }] }}>
   <main class:transposed aria-label="Piano keyboard" aria-busy={status === 'loading'}
     data-audio-state={status} data-instrument={instrumentId} data-range={range}
+    data-views={[showKeyboard && 'keyboard', showSheet && 'sheet'].filter(Boolean).join(' ')}
     use:interaction={{ on_pressed_down: pointerDown, on_pressed_up: pointerUp,
       on_cursor_exit: (event) => { if (event.pointer_type !== 'touch') releaseMouse(); } }}
     style:--rows={transposed ? octaves.length : 12} style:--columns={transposed ? 12 : octaves.length}>
-    <Settings bind:open={settingsOpen} {transposed} {instrumentId} {range}
-      ontranspose={(value) => { stopAll(); transposed = value; }} oninstrument={selectInstrument} onrange={selectRange} />
-    <KeyboardDisplay class="piano-matrix">
-      {#each displayRows as row}
-        <div class="piano-row">
-          {#each row as note (note.id)}
-            <PianoKey {note} pressed={sounding.has(note.id)} {mouseDown}
-              disabled={settingsOpen} onpress={press} onrelease={release} onactivate={activateAudio} />
-          {/each}
-        </div>
-      {/each}
-    </KeyboardDisplay>
+    <div class="settings-bar">
+      <Settings bind:open={settingsOpen} {transposed} {instrumentId} {range}
+        ontranspose={(value) => { stopAll(); transposed = value; }} oninstrument={selectInstrument} onrange={selectRange} />
+      <ViewToggle label="Sheet" shortcut="s" on={showSheet} disabled={settingsOpen} ontoggle={() => toggleView('sheet')}>sheet</ViewToggle>
+      <ViewToggle label="Keyboard" shortcut="k" on={showKeyboard} disabled={settingsOpen} ontoggle={() => toggleView('keyboard')}>
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <rect x="2.5" y="6" width="19" height="12" rx="1" />
+          <path d="M6 9.5h1M9.5 9.5h1M13 9.5h1M16.5 9.5h1M6 12.5h1M9.5 12.5h1M13 12.5h1M16.5 12.5h1M8 15.5h8" stroke-linecap="round" />
+        </svg>
+      </ViewToggle>
+    </div>
+    <div class="views">
+      {#if showKeyboard}
+        <section class="keyboard-view" aria-label="Keyboard">
+          <KeyboardDisplay class="piano-matrix">
+            {#each displayRows as row}
+              <div class="piano-row">
+                {#each row as note (note.id)}
+                  <PianoKey {note} pressed={sounding.has(note.id)} {mouseDown}
+                    disabled={settingsOpen} onpress={press} onrelease={release} onactivate={activateAudio} />
+                {/each}
+              </div>
+            {/each}
+          </KeyboardDisplay>
+        </section>
+      {/if}
+      {#if showSheet}
+        <div class="sheet-view"><Sheet /></div>
+      {/if}
+    </div>
   </main>
 </Keyflow>

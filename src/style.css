@@ -36,7 +36,61 @@ main.transposed { --rows: 8; --columns: 12; }
   padding-left: .5rem;
   display: flex;
   align-items: center;
+  gap: .5rem;
 }
+
+.view-toggle > button { display: flex; align-items: center; }
+.view-toggle .button { position: relative; }
+.view-toggle .button .content.content {
+  display: flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 .5rem;
+  border: 1px solid var(--primary);
+  border-radius: .25rem;
+  color: var(--primary);
+  background: var(--background);
+  font: 1rem / 1 var(--font-mono);
+}
+.view-toggle.on .button .content.content { color: var(--background); background: var(--primary); }
+.view-toggle-content { display: flex; align-items: center; }
+/* Like the settings icon, the shortcut appears on hover or focus. */
+.view-toggle .route {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1;
+  visibility: hidden;
+  pointer-events: none;
+  background: var(--background);
+  font-size: 12px;
+}
+.view-toggle > button:hover .route, .view-toggle > button:focus-visible .route { visibility: visible; }
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The keyboard and sheet screens sit side by side and share the width. */
+.views {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.views > * { flex: 1 1 0; min-width: 0; min-height: 0; }
+.views > * + * { border-left: 1px solid var(--tertiary); }
+.keyboard-view {
+  display: flex;
+  flex-direction: column;
+  container-type: size;
+}
+.sheet-view { overflow: hidden; }
+.song-select > .subkeyframe-trigger .content { background: transparent; }
+.song-select .subkeyframe-items button { display: block; width: 100%; border: 1px solid currentColor; padding: .5rem; text-align: left; font: 1rem / 1.5 var(--font-mono); }
 
 .settings-menu > .subkeyframe-trigger {
   display: flex;
@@ -109,8 +163,8 @@ main .piano-matrix.keyflow-keyboard {
   grid-template-rows: repeat(var(--rows), minmax(0, 1fr));
   --keyboard-key-height: 0;
   --min-box: min(var(--key-size),
-    calc((100dvw - 1rem - (var(--columns) - 1) * .3rem) / var(--columns) - 2px),
-    calc((100dvh - 40px - 1rem - (var(--rows) - 1) * .3rem) / var(--rows) - 2px));
+    calc((100cqw - 1rem - (var(--columns) - 1) * .3rem) / var(--columns) - 2px),
+    calc((100cqh - 1rem - (var(--rows) - 1) * .3rem) / var(--rows) - 2px));
   --keyboard-font-size: var(--min-box);
   --keyboard-pressed-color: var(--background);
 }

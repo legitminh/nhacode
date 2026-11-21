@@ -19,7 +19,8 @@ Requires Node 22.18+ (Node 24 recommended). Open the local URL printed by Vite.
 - Rows, top to bottom: A, A♯, B, C, C♯, D, D♯, E, F, F♯, G, G♯.
 - Columns run from the lowest octave on the left to the highest on the right.
 - Keys use centered, unbracketed hexadecimal labels at Keyflow's `--min-box` font
-  size (48px, reduced only to fit smaller cells), all in the same theme color.
+  size (48px, reduced only to fit smaller cells). Each pitch class 0–b has its own
+  hue from Keyflow's `distribute_color`, shared with the sheet screen.
 - Hold the primary mouse button and glide between keys, or drag a finger across
   them. Notes stop when the cursor/contact leaves, lifts, or is cancelled.
   Hovering without pressing is silent.
@@ -45,6 +46,39 @@ Requires Node 22.18+ (Node 24 recommended). Open the local URL printed by Vite.
   the system-selected output route instead of relying on another Safari page to
   initialize it. Touch release and click retry activation for stricter iOS gesture
   policies. Headphone pairing and output-device selection remain system settings.
+
+### Sheet screen
+
+The top bar has two Keyflow toggles: **sheet** (shortcut S) and the keyboard icon
+(shortcut K). Either screen can be on or off; when both are on they sit side by
+side. The choice is remembered per browser. Pick a song from the **Song** menu (M).
+
+The sheet has no stave; it only shows which key is pressed when:
+
+- Each measure is divided into time frames of its *resolution*, the smallest
+  note or rest unit in that measure. One frame is one character cell.
+- A note's start shows its pitch class in lowercase hex (0 = A … b = G♯); each
+  further frame it is held shows a dash. Ties from the previous measure show
+  dashes only. Empty frames are blank.
+- Notes sounding together stack by ascending pitch (lower on top); notes that
+  don't overlap share a row.
+- Each stream (line of measures) starts with one thick line above octave 0. Each
+  higher octave adds a thin line above its block, drawn only over the frames that
+  reach that octave, so the number of lines above a digit is its octave.
+- Measures wrap to a new stream at the screen edge.
+
+Scores come from [PDMX](https://github.com/pnlong/PDMX) (Zenodo record
+15571083). `scripts/pdmx.py` searches `PDMX.csv`, streams `mxl.tar.gz` until the
+score is found, and caches the raw MXL in `data/pdmx/pdmx.sqlite` (gitignored).
+It then writes the simplified song to `src/songs/<id>.json`, which is committed:
+
+```bash
+python3 scripts/pdmx.py search "fur elise"
+python3 scripts/pdmx.py fetch fur-elise "fur elise"
+python3 scripts/pdmx.py simplify fur-elise "Für Elise"
+```
+
+Repeats are shown as written, not unrolled. Grace notes are omitted.
 
 ### Octave convention
 

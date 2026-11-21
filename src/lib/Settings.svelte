@@ -52,7 +52,6 @@
   }
 </script>
 
-<div class="settings-bar">
   <SubKeyframe label="Settings" enterTrigger="esc" class="settings-menu" bind:open
     onopen={() => {
       const endpoints = range.match(/\d+/g)!;
@@ -87,4 +86,3 @@
       <Button on_close={() => ontranspose(!transposed)}>Transpose display: {transposed ? 'On' : 'Off'}</Button>
     {/snippet}
   </SubKeyframe>
-</div>
