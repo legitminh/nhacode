@@ -73,6 +73,9 @@ The sheet has no stave; it only shows which key is pressed when:
   higher octave adds a thin line above its block, drawn only over the frames that
   reach that octave, so the number of lines above a digit is its octave.
 - Measures wrap to a new stream at the screen edge.
+- The sheet sits in Keyflow's `Document`. **Settings → Lockstep scrolling** switches
+  between native scrolling and Keyflow's lockstep paging (wheel, swipe, or the ↓/↑
+  buttons move one page, landing on a stream's top). Keyflow remembers the mode.
 
 Scores come from [PDMX](https://github.com/pnlong/PDMX) (Zenodo record
 15571083). `scripts/pdmx.py` searches `PDMX.csv`, streams `mxl.tar.gz` until the

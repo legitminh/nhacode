@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { min_box } from '@legitminh/keyflow';
+  import { Document, min_box, must_view } from '@legitminh/keyflow';
   import { layoutMeasure, layoutStreams, type MeasureLayout, type StreamLayout } from './layout';
   import type { Song } from './types';
   import { pitchColor } from '../colors';
@@ -60,6 +60,8 @@
 
 <section class="sheet-screen" aria-label="Sheet">
   <div class="sheet-scroll" bind:clientWidth={width}>
+    <!-- Keyflow's Document: native scrolling, or lockstep paging when that setting is on. -->
+    <Document>
     {#if error}
       <p role="alert">{error}</p>
     {:else if song}
@@ -67,6 +69,7 @@
         {#each streams as stream, index}
           {@const xs = offsets(stream)}
           {@const height = streamHeight(stream)}
+          <div class="sheet-stream-box" use:must_view>
           <svg class="sheet-stream" data-stream={index} width={stream.frames * CELL} height={height}
             viewBox={`0 0 ${stream.frames * CELL} ${height}`} role="img"
             aria-label={`Measures ${stream.measures[0].number} to ${stream.measures.at(-1)!.number}`}>
@@ -95,9 +98,11 @@
               </g>
             {/each}
           </svg>
+          </div>
         {/each}
       </div>
     {/if}
+    </Document>
   </div>
 </section>
 
@@ -114,12 +119,14 @@
   .sheet-scroll {
     flex: 1;
     min-height: 0;
-    overflow: auto;
-    padding: 0 .5rem 1rem;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 0 .5rem;
     -webkit-user-select: text;
     user-select: text;
   }
-  .sheet-streams { display: flex; flex-direction: column; gap: 20px; }
+  .sheet-streams { display: flex; flex-direction: column; gap: calc(var(--min-box) / 2); padding-bottom: var(--min-box); }
   .sheet-stream { display: block; overflow: visible; }
   .octave-zero { stroke: currentColor; stroke-width: 3; }
   .octave-line { stroke: currentColor; stroke-width: 1; }

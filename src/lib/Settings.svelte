@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Button, SubKeyframe, interaction, min_box } from '@legitminh/keyflow';
+  import { Button, SubKeyframe, interaction, lockstep_scrolling, min_box } from '@legitminh/keyflow';
   import { instruments } from './audio/instruments';
   import { parseOctaveRange } from './notes';
   import { MARGIN_MAX, MARGIN_STEP, SIDES, type Margins, type Side } from './margins';
@@ -112,5 +112,7 @@
         {/snippet}
       </SubKeyframe>
       <Button on_close={() => ontranspose(!transposed)}>Transpose display: {transposed ? 'On' : 'Off'}</Button>
+      <Button on_close={() => lockstep_scrolling.set(!lockstep_scrolling.enabled)}
+        >Lockstep scrolling: {lockstep_scrolling.enabled ? 'On' : 'Off'}</Button>
     {/snippet}
   </SubKeyframe>

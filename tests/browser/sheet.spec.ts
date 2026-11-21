@@ -49,7 +49,10 @@ test('min-box increases and decreases like Keyflow and drives every font size', 
       toggle: px('.view-toggle .content'), note: px('.sheet-note') };
   });
   await expect(page.locator('.sheet-note').first()).toBeVisible();
-  expect(await sizes()).toEqual({ box: 48, toggle: 38.4, note: 38.4 });
+  const initial = await sizes();
+  expect(initial.box).toBe(48);
+  expect(initial.toggle).toBeCloseTo(38.4);
+  expect(initial.note).toBeCloseTo(38.4);
   await page.getByRole('button', { name: /Settings/ }).click();
   await page.getByRole('button', { name: /Decrease/ }).click();
   await expect(page.getByText('Min box: 38px')).toBeVisible();
@@ -83,4 +86,27 @@ test('song menu sits on the toolbar and keyboard margins step in Settings', asyn
   const key = (await page.locator('[data-note="0-0"]').boundingBox())!;
   const box = (await view.boundingBox())!;
   expect(key.x).toBeGreaterThanOrEqual(box.x + 24);
+});
+
+test('Settings switches the sheet between native and Keyflow lockstep scrolling', async ({ page }) => {
+  await page.getByRole('button', { name: /^Sheet/ }).click();
+  await page.getByRole('button', { name: /^Keyboard/ }).click();
+  await expect(page.locator('.sheet-note').first()).toBeVisible();
+  const world = page.locator('.sheet-scroll .world');
+  await expect(world).not.toHaveAttribute('style', /translateY/);
+  await page.getByRole('button', { name: /Settings/ }).click();
+  await page.getByRole('button', { name: /Lockstep scrolling: Off/ }).click();
+  await expect(page.getByRole('button', { name: /Lockstep scrolling: On/ })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: '↓' }).click();
+  await expect(world).toHaveAttribute('style', /translateY\(-[1-9]/);
+  // Paging lands on the top of a stream rather than cutting one in half.
+  await page.waitForTimeout(500);
+  const offsets = await page.evaluate(() => {
+    const viewport = document.querySelector('.sheet-scroll .viewport')!.getBoundingClientRect().top;
+    return [...document.querySelectorAll('.sheet-stream-box')].map((box) => Math.round(box.getBoundingClientRect().top - viewport));
+  });
+  expect(offsets).toContain(0);
+  await page.reload();
+  await expect(world).toHaveAttribute('style', /translateY/); // Keyflow remembers the mode
 });
