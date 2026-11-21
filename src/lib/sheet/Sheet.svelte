@@ -1,12 +1,11 @@
 <script lang="ts">
-  import { SubKeyframe, min_box } from '@legitminh/keyflow';
-  import catalogue from '../../songs/index.json';
+  import { min_box } from '@legitminh/keyflow';
   import { layoutMeasure, layoutStreams, type MeasureLayout, type StreamLayout } from './layout';
   import type { Song } from './types';
   import { pitchColor } from '../colors';
 
   const files = import.meta.glob<Song>(['../../songs/*.json', '!../../songs/index.json'], { import: 'default' });
-  const songs = catalogue as { id: string; title: string; composer: string }[];
+  let { songId }: { songId: string } = $props();
 
   // Sizes follow Keyflow's min-box: a row is one box tall, a time frame is half a box
   // (one monospace glyph at 0.8 box), and an octave line takes an eighth of a box.
@@ -14,14 +13,9 @@
   const CELL = $derived(min_box.value / 2);
   const GAP = $derived(Math.max(4, min_box.value / 8));
 
-  let songId = $state(songs[0]?.id ?? '');
   let song = $state<Song | undefined>();
   let error = $state('');
   let width = $state(0);
-  const selected = $derived(songs.find((entry) => entry.id === songId));
-  const choices = $derived(songs.map((entry) => ({
-    id: entry.id, label: entry.title, on_select: () => { songId = entry.id; },
-  })));
   const measures = $derived<MeasureLayout[]>(song ? song.measures.map(layoutMeasure) : []);
   const streams = $derived(layoutStreams(measures, Math.max(1, Math.floor((width - 16) / CELL))));
 
@@ -65,9 +59,6 @@
 </script>
 
 <section class="sheet-screen" aria-label="Sheet">
-  <div class="sheet-controls">
-    <SubKeyframe label={`Song: ${selected?.title ?? 'None'}`} items={choices} enterTrigger="m" class="song-select" />
-  </div>
   <div class="sheet-scroll" bind:clientWidth={width}>
     {#if error}
       <p role="alert">{error}</p>
@@ -120,7 +111,6 @@
     color: var(--primary);
     background: var(--background);
   }
-  .sheet-controls { flex-shrink: 0; padding: 0 .5rem .5rem; }
   .sheet-scroll {
     flex: 1;
     min-height: 0;

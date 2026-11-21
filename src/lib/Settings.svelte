@@ -2,9 +2,10 @@
   import { Button, SubKeyframe, interaction, min_box } from '@legitminh/keyflow';
   import { instruments } from './audio/instruments';
   import { parseOctaveRange } from './notes';
+  import { MARGIN_MAX, MARGIN_STEP, SIDES, type Margins, type Side } from './margins';
 
-  let { open = $bindable(false), transposed, instrumentId, range,
-    ontranspose, oninstrument, onrange }: {
+  let { open = $bindable(false), transposed, instrumentId, range, margins,
+    ontranspose, oninstrument, onrange, onmargin }: {
     open?: boolean;
     transposed: boolean;
     instrumentId: string;
@@ -12,7 +13,10 @@
     ontranspose: (value: boolean) => void;
     oninstrument: (id: string) => void;
     onrange: (value: string, octaves: number[]) => void;
+    margins: Margins;
+    onmargin: (side: Side, value: number) => void;
   } = $props();
+  const sideName = (side: Side) => side[0].toUpperCase() + side.slice(1);
   let lower = $state('0');
   let upper = $state('8');
   let rangeError = $state('');
@@ -94,6 +98,19 @@
         <Button on_close={() => zoom(1)} disabled={min_box.value >= 160}>Increase</Button>
         <Button on_close={() => zoom(-1)} disabled={min_box.value <= 12}>Decrease</Button>
       </div>
+      <SubKeyframe label={`Keyboard margins: ${SIDES.map((side) => margins[side]).join(' ')}`} class="margin-menu">
+        {#snippet children()}
+          {#each SIDES as side}
+            <div class="margin-setting" data-side={side}>
+              <span>{sideName(side)}: {margins[side]}px</span>
+              <Button on_close={() => onmargin(side, margins[side] - MARGIN_STEP)} disabled={margins[side] <= 0}
+                >−<span class="visually-hidden"> {side} margin</span></Button>
+              <Button on_close={() => onmargin(side, margins[side] + MARGIN_STEP)} disabled={margins[side] >= MARGIN_MAX}
+                >+<span class="visually-hidden"> {side} margin</span></Button>
+            </div>
+          {/each}
+        {/snippet}
+      </SubKeyframe>
       <Button on_close={() => ontranspose(!transposed)}>Transpose display: {transposed ? 'On' : 'Off'}</Button>
     {/snippet}
   </SubKeyframe>

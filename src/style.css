@@ -92,7 +92,24 @@ main.transposed { --rows: 8; --columns: 12; }
   container-type: size;
 }
 .sheet-view { overflow: hidden; }
+.song-select { position: relative; min-width: 0; }
+.song-select > .subkeyframe-trigger { white-space: nowrap; }
 .song-select > .subkeyframe-trigger .content { background: transparent; }
+.settings-bar .song-select > .subkeyframe-panel {
+  position: fixed;
+  inset: var(--min-box) .5rem auto auto;
+  z-index: 2;
+  box-sizing: border-box;
+  width: min(calc(var(--min-box) * 12), calc(100vw - 1rem));
+  max-height: calc(100dvh - var(--min-box) - 8px);
+  overflow-y: auto;
+  padding: 1rem;
+  color: var(--primary);
+  background: var(--background);
+  border: 1px solid var(--primary);
+  border-radius: .25rem;
+  font: var(--text-size) / var(--min-box) var(--font-mono);
+}
 .song-select .subkeyframe-items button { display: block; width: 100%; border: 1px solid currentColor; padding: 0 calc(var(--min-box) / 4); text-align: left; font: var(--text-size) / var(--min-box) var(--font-mono); }
 
 .settings-menu > .subkeyframe-trigger {
@@ -145,6 +162,10 @@ main.transposed { --rows: 8; --columns: 12; }
 .octave-range .keyflow-textbox { margin: .25rem 0 0; }
 .min-box-setting { display: flex; flex-wrap: wrap; align-items: center; gap: 0 .5rem; margin-top: .25rem; }
 .min-box-setting > span { flex-basis: 100%; }
+.margin-menu > button, .margin-menu .margin-setting > button { display: block; width: 100%; border: 1px solid currentColor; padding: 0 calc(var(--min-box) / 4); }
+.margin-setting { display: flex; align-items: center; gap: .5rem; margin-top: .25rem; }
+.margin-setting > span { flex: 1; white-space: nowrap; }
+.margin-setting > button { flex: 0 0 calc(var(--min-box) * 2.5); white-space: nowrap; }
 .min-box-setting > button { flex: 1; border: 1px solid currentColor; padding: 0 calc(var(--min-box) / 4); }
 .range-endpoints { display: flex; align-items: center; gap: .5rem; margin-top: .25rem; }
 .range-endpoints input {

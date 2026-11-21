@@ -27,6 +27,9 @@ Requires Node 22.18+ (Node 24 recommended). Open the local URL printed by Vite.
 - Every font size follows Keyflow's `--min-box` (glyphs at 0.8 box, one box per
   line). **Settings → Min box** has Increase and Decrease buttons that scale it by
   1.25, like Keyflow's zoom, between 12 and 160 px; Keyflow remembers the value.
+- **Settings → Keyboard margins** sets the keyboard's top, right, bottom and left
+  margins with − and + buttons (8 px per press, 0–480 px). Keys shrink to fit
+  inside the margins, and the margins are remembered per browser.
 - The settings icon at the top left opens with a click or **Escape**; its shortcut
   appears on hover or keyboard focus. It contains instrument, octave-range and
   transpose controls, implemented with Keyflow's `SubKeyframe` and interaction action.
@@ -54,7 +57,8 @@ Requires Node 22.18+ (Node 24 recommended). Open the local URL printed by Vite.
 
 The top bar has two Keyflow toggles: **sheet** (shortcut S) and the keyboard icon
 (shortcut K). Either screen can be on or off; when both are on they sit side by
-side. The choice is remembered per browser. Pick a song from the **Song** menu (M).
+side. The choice is remembered per browser. While the sheet is on, the **Song**
+menu (M) sits on the same toolbar line.
 
 The sheet has no stave; it only shows which key is pressed when:
 

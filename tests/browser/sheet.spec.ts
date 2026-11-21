@@ -64,3 +64,23 @@ test('min-box increases and decreases like Keyflow and drives every font size', 
   await expect(page.locator('.sheet-note').first()).toBeVisible();
   expect((await sizes()).box).toBeCloseTo(38.4); // Keyflow saves min-box
 });
+
+test('song menu sits on the toolbar and keyboard margins step in Settings', async ({ page }) => {
+  await page.getByRole('button', { name: /^Sheet/ }).click();
+  const song = (await page.getByRole('button', { name: /Song: Für Elise/ }).boundingBox())!;
+  const settings = (await page.getByRole('button', { name: /Settings/ }).boundingBox())!;
+  expect(Math.abs(song.y + song.height / 2 - (settings.y + settings.height / 2))).toBeLessThan(4);
+
+  await page.getByRole('button', { name: /Settings/ }).click();
+  await page.getByRole('button', { name: /Keyboard margins/ }).click();
+  for (let i = 0; i < 3; i++) await page.getByRole('button', { name: '+ left margin' }).click();
+  await page.getByRole('button', { name: '+ top margin' }).click();
+  await page.getByRole('button', { name: '− top margin' }).click();
+  const view = page.getByRole('region', { name: 'Keyboard', exact: true });
+  await expect(view).toHaveCSS('padding', '0px 0px 0px 24px');
+  await page.reload();
+  await expect(view).toHaveCSS('padding', '0px 0px 0px 24px');
+  const key = (await page.locator('[data-note="0-0"]').boundingBox())!;
+  const box = (await view.boundingBox())!;
+  expect(key.x).toBeGreaterThanOrEqual(box.x + 24);
+});

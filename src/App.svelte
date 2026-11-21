@@ -5,10 +5,13 @@
   import Settings from './lib/Settings.svelte';
   import ViewToggle from './lib/ViewToggle.svelte';
   import Sheet from './lib/sheet/Sheet.svelte';
+  import SongMenu from './lib/sheet/SongMenu.svelte';
+  import { songs } from './lib/sheet/songs';
   import { NOTE_NAMES, noteAt, parseOctaveRange, type PianoNote } from './lib/notes';
   import { AudioEngine } from './lib/audio/engine';
   import { instruments } from './lib/audio/instruments';
   import type { InstrumentDefinition } from './lib/audio/types';
+  import { clampMargin, loadMargins, saveMargins, type Side } from './lib/margins';
 
   const engine = new AudioEngine(instruments[0]);
   let held = $state(new Map<string, PianoNote>());
@@ -21,6 +24,8 @@
   let transposed = $state(false);
   let showKeyboard = $state(remembered('keyboard', true));
   let showSheet = $state(remembered('sheet', false));
+  let margins = $state(loadMargins());
+  let songId = $state(rememberedText('song', songs[0]?.id ?? ''));
   let generation = 0;
   const noteRows = $derived(NOTE_NAMES.map((_, row) => octaves.map((octave) => noteAt(octave, row))));
   const displayRows = $derived(transposed
@@ -113,6 +118,20 @@
     } catch { return fallback; }
   }
 
+  function rememberedText(name: string, fallback: string) {
+    try { return localStorage.getItem(`nhacode:${name}`) ?? fallback; } catch { return fallback; }
+  }
+
+  function setMargin(side: Side, value: number) {
+    margins = { ...margins, [side]: clampMargin(value) };
+    saveMargins(margins);
+  }
+
+  function selectSong(id: string) {
+    songId = id;
+    try { localStorage.setItem('nhacode:song', id); } catch {}
+  }
+
   function toggleView(view: 'keyboard' | 'sheet') {
     if (view === 'keyboard') { stopAll(); showKeyboard = !showKeyboard; }
     else showSheet = !showSheet;
@@ -134,7 +153,8 @@
     style:--rows={transposed ? octaves.length : 12} style:--columns={transposed ? 12 : octaves.length}>
     <div class="settings-bar">
       <Settings bind:open={settingsOpen} {transposed} {instrumentId} {range}
-        ontranspose={(value) => { stopAll(); transposed = value; }} oninstrument={selectInstrument} onrange={selectRange} />
+        ontranspose={(value) => { stopAll(); transposed = value; }} oninstrument={selectInstrument} onrange={selectRange}
+        {margins} onmargin={setMargin} />
       <ViewToggle label="Sheet" shortcut="s" on={showSheet} disabled={settingsOpen} ontoggle={() => toggleView('sheet')}>sheet</ViewToggle>
       <ViewToggle label="Keyboard" shortcut="k" on={showKeyboard} disabled={settingsOpen} ontoggle={() => toggleView('keyboard')}>
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
@@ -142,10 +162,12 @@
           <path d="M6 9.5h1M9.5 9.5h1M13 9.5h1M16.5 9.5h1M6 12.5h1M9.5 12.5h1M13 12.5h1M16.5 12.5h1M8 15.5h8" stroke-linecap="round" />
         </svg>
       </ViewToggle>
+      {#if showSheet}<SongMenu {songId} disabled={settingsOpen} onselect={selectSong} />{/if}
     </div>
     <div class="views">
       {#if showKeyboard}
-        <section class="keyboard-view" aria-label="Keyboard">
+        <section class="keyboard-view" aria-label="Keyboard"
+          style:padding={`${margins.top}px ${margins.right}px ${margins.bottom}px ${margins.left}px`}>
           <KeyboardDisplay class="piano-matrix">
             {#each displayRows as row}
               <div class="piano-row">
@@ -159,7 +181,7 @@
         </section>
       {/if}
       {#if showSheet}
-        <div class="sheet-view"><Sheet /></div>
+        <div class="sheet-view"><Sheet {songId} /></div>
       {/if}
     </div>
   </main>
