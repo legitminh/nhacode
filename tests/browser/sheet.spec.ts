@@ -40,3 +40,27 @@ test('Für Elise renders as wrapped streams of hex digits with octave lines', as
   }
   await page.screenshot({ path: 'test-results/nhacode-sheet.png' });
 });
+
+test('min-box increases and decreases like Keyflow and drives every font size', async ({ page }) => {
+  await page.getByRole('button', { name: /^Sheet/ }).click();
+  const sizes = () => page.evaluate(() => {
+    const px = (selector: string) => parseFloat(getComputedStyle(document.querySelector(selector)!).fontSize);
+    return { box: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--min-box')),
+      toggle: px('.view-toggle .content'), note: px('.sheet-note') };
+  });
+  await expect(page.locator('.sheet-note').first()).toBeVisible();
+  expect(await sizes()).toEqual({ box: 48, toggle: 38.4, note: 38.4 });
+  await page.getByRole('button', { name: /Settings/ }).click();
+  await page.getByRole('button', { name: /Decrease/ }).click();
+  await expect(page.getByText('Min box: 38px')).toBeVisible();
+  const smaller = await sizes();
+  expect(smaller.box).toBeCloseTo(38.4);
+  expect(smaller.toggle).toBeCloseTo(38.4 * .8);
+  expect(smaller.note).toBeCloseTo(38.4 * .8);
+  await page.getByRole('button', { name: /Increase/ }).click();
+  await expect(page.getByText('Min box: 48px')).toBeVisible();
+  await page.getByRole('button', { name: /Decrease/ }).click();
+  await page.reload();
+  await expect(page.locator('.sheet-note').first()).toBeVisible();
+  expect((await sizes()).box).toBeCloseTo(38.4); // Keyflow saves min-box
+});

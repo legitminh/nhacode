@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { SubKeyframe } from '@legitminh/keyflow';
+  import { SubKeyframe, min_box } from '@legitminh/keyflow';
   import catalogue from '../../songs/index.json';
   import { layoutMeasure, layoutStreams, type MeasureLayout, type StreamLayout } from './layout';
   import type { Song } from './types';
@@ -8,10 +8,11 @@
   const files = import.meta.glob<Song>(['../../songs/*.json', '!../../songs/index.json'], { import: 'default' });
   const songs = catalogue as { id: string; title: string; composer: string }[];
 
-  // One time frame is one monospace cell.
-  const CELL = 14;
-  const ROW = 18;
-  const GAP = 6;  // vertical room for an octave line
+  // Sizes follow Keyflow's min-box: a row is one box tall, a time frame is half a box
+  // (one monospace glyph at 0.8 box), and an octave line takes an eighth of a box.
+  const ROW = $derived(min_box.value);
+  const CELL = $derived(min_box.value / 2);
+  const GAP = $derived(Math.max(4, min_box.value / 8));
 
   let songId = $state(songs[0]?.id ?? '');
   let song = $state<Song | undefined>();
@@ -97,7 +98,7 @@
                   {/if}
                   {#each { length: note.frames - (note.tied ? 0 : 1) } as _, i}
                     {@const frame = note.frame + (note.tied ? 0 : 1) + i}
-                    <line class="hold" style:stroke={pitchColor(parseInt(note.digit, 16))} x1={frame * CELL + 3} x2={(frame + 1) * CELL - 3} y1={y} y2={y} />
+                    <line class="hold" style:stroke={pitchColor(parseInt(note.digit, 16))} x1={frame * CELL + CELL / 5} x2={(frame + 1) * CELL - CELL / 5} y1={y} y2={y} />
                   {/each}
                 {/each}
               </g>
@@ -136,7 +137,8 @@
   .hold { stroke: currentColor; stroke-width: 1.5; }
   .sheet-note {
     fill: currentColor;
-    font: 15px / 1 var(--font-mono, ui-monospace, monospace);
+    font-size: calc(var(--min-box) * .8);
+    font-family: var(--font-mono, ui-monospace, monospace);
     text-anchor: middle;
     dominant-baseline: central;
   }

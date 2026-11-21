@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Button, SubKeyframe, interaction } from '@legitminh/keyflow';
+  import { Button, SubKeyframe, interaction, min_box } from '@legitminh/keyflow';
   import { instruments } from './audio/instruments';
   import { parseOctaveRange } from './notes';
 
@@ -16,6 +16,12 @@
   let lower = $state('0');
   let upper = $state('8');
   let rangeError = $state('');
+  // Keyflow's zoom step: min-box grows or shrinks by a factor of 1.25. Keyflow saves it.
+  const ZOOM = 1.25;
+  function zoom(direction: 1 | -1) {
+    const next = min_box.value * ZOOM ** direction;
+    min_box.set(Math.min(160, Math.max(12, Math.round(next * 100) / 100)));
+  }
   const instrument = $derived(instruments.find((item) => item.id === instrumentId)!);
   const choices = instruments.map((option) => ({
     id: option.id, label: option.name, on_select: () => oninstrument(option.id),
@@ -82,6 +88,11 @@
           <span aria-hidden="true">)</span>
         </div>
         {#if rangeError}<p class="range-error" role="alert">{rangeError}</p>{/if}
+      </div>
+      <div class="min-box-setting">
+        <span>Min box: {Math.round(min_box.value)}px</span>
+        <Button on_close={() => zoom(1)} disabled={min_box.value >= 160}>Increase</Button>
+        <Button on_close={() => zoom(-1)} disabled={min_box.value <= 12}>Decrease</Button>
       </div>
       <Button on_close={() => ontranspose(!transposed)}>Transpose display: {transposed ? 'On' : 'Off'}</Button>
     {/snippet}
