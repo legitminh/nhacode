@@ -19,16 +19,15 @@ Requires Node 22.18+ (Node 24 recommended). Open the local URL printed by Vite.
 - Rows, top to bottom: A, A♯, B, C, C♯, D, D♯, E, F, F♯, G, G♯.
 - Columns run from the lowest octave on the left to the highest on the right.
 - Keys use centered, unbracketed hexadecimal labels at Keyflow's `--min-box` font
-  size (48px, reduced only to fit smaller cells). Each pitch class 0–b has its own
-  hue from Keyflow's `distribute_color`, shared with the sheet screen.
+  size (48px, reduced only to fit smaller cells). Color marks the octave, not the
+  note: octave n uses Keyflow's `distribute_color` index n for the key's text and
+  border, shared with the sheet screen. The hex label alone names the note.
 - Hold the primary mouse button and glide between keys, or drag a finger across
   them. Notes stop when the cursor/contact leaves, lifts, or is cancelled.
   Hovering without pressing is silent.
 - Every font size follows Keyflow's `--min-box` (glyphs at 0.8 box, one box per
   line). **Settings → Min box** has Increase and Decrease buttons that scale it by
   1.25, like Keyflow's zoom, between 12 and 160 px; Keyflow remembers the value.
-- Each key's border uses its octave's Keyflow color (`distribute_color` index =
-  octave, the same color as that octave's sheet line).
 - **Settings → Keyboard layout** has number fields, in min-box units, for the key
   border width (0–0.25, default 0.04) and the top, right, bottom and left margins
   (0–10, step 0.25). Keys shrink to fit.
@@ -75,7 +74,8 @@ The sheet has no stave; it only shows which key is pressed when:
   higher octave adds a thin line above its block, drawn only over the frames that
   reach that octave, so the number of lines above a digit is its octave. Lines are
   colored with Keyflow's `distribute_color` by index: the thick origin line is 0,
-  the line above octave n is n (the same hues as digits 0–b).
+  the line above octave n is n. Digits and hold dashes take their octave's color
+  too, so each octave block matches the line above it.
 - Measures wrap to a new stream at the screen edge.
 - **Settings → Sheet lines** has number fields for the origin line and octave line
   stroke widths, in min-box units (0.01–0.25; defaults 0.06 and 0.03).

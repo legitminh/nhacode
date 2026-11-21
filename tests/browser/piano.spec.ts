@@ -75,7 +75,7 @@ test('all 96 Keyflow keys fit desktop and mobile viewports without scrolling', a
           fits: label.width <= key.width && label.height <= key.height,
         };
       }));
-      expect(new Set(labels.map((label) => label.color)).size).toBe(12); // one Keyflow color per pitch class
+      expect(new Set(labels.map((label) => label.color)).size).toBe(8); // one Keyflow color per octave
       for (const label of labels) {
         expect(label.text).toMatch(/^[0-9ab]$/);
         expect(Math.abs(label.dx)).toBeLessThan(1);

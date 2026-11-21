@@ -40,6 +40,13 @@ test('Für Elise renders as wrapped streams of hex digits with octave lines', as
     [...svg.querySelectorAll('[data-line]')].map((line) => [line.getAttribute('data-line'), getComputedStyle(line).stroke])));
   expect(new Set(Object.values(strokes)).size).toBe(Object.keys(strokes).length);
   expect(strokes['0']).toBe('rgb(182, 32, 32)'); // hue 0, same as digit 0
+  // Digits take their octave's color (the same index as the line above that octave), not their pitch's.
+  const digits = await page.locator('.sheet-stream').first().evaluate((svg) => [...svg.querySelectorAll('.sheet-note')]
+    .map((note) => [Number(note.getAttribute('data-midi')), getComputedStyle(note).fill] as const));
+  for (const [midi, fill] of digits) {
+    const octave = String(Math.floor((midi - 21) / 12));
+    if (strokes[octave]) expect(fill).toBe(strokes[octave]);
+  }
   for (const box of await streams.evaluateAll((items) => items.map((item) => item.getBoundingClientRect().right))) {
     expect(box).toBeLessThanOrEqual(page.viewportSize()!.width);
   }
@@ -150,13 +157,14 @@ test('sheet line widths are adjustable and every setting survives closing the ap
   await expect(next.locator('html')).toHaveAttribute('data-storage', /persistent|best-effort/);
 });
 
-test('key borders take their octave color and a min-box border width from Settings', async ({ page }) => {
+test('key text and borders take their octave color and a min-box border width from Settings', async ({ page }) => {
   const border = (note: string) => page.locator(`[data-note="${note}"] .keyflow-key`).evaluate((key) => {
     const style = getComputedStyle(key);
     return { color: style.borderTopColor, width: parseFloat(style.borderTopWidth) };
   });
   // Octave n uses distribute_color index n, like sheet line n.
   expect((await border('0-0')).color).toBe('rgb(182, 32, 32)');
+  expect(await page.locator('[data-note="0-5"] .keyflow-key').evaluate((key) => getComputedStyle(key).color)).toBe('rgb(182, 32, 32)');
   expect((await border('0-5')).color).toBe('rgb(182, 32, 32)');
   expect((await border('1-0')).color).not.toBe((await border('0-0')).color);
   await page.getByRole('button', { name: /Settings/ }).click();

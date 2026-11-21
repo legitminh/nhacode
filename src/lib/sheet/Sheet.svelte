@@ -2,7 +2,7 @@
   import { Document, min_box, must_view } from '@legitminh/keyflow';
   import { layoutMeasure, layoutStreams, type MeasureLayout, type StreamLayout } from './layout';
   import type { Song } from './types';
-  import { octaveLineColor, pitchColor } from '../colors';
+  import { octaveLineColor } from '../colors';
 
   const files = import.meta.glob<Song>(['../../songs/*.json', '!../../songs/index.json'], { import: 'default' });
   import type { LineWidths } from './lines';
@@ -93,11 +93,11 @@
                 {#each measure.notes as note}
                   {@const y = blockTop(stream, note.octave) + note.lane * ROW + ROW / 2}
                   {#if !note.tied}
-                    <text class="sheet-note" data-midi={note.midi} style:fill={pitchColor(parseInt(note.digit, 16))} x={note.frame * CELL + CELL / 2} {y}>{note.digit}</text>
+                    <text class="sheet-note" data-midi={note.midi} style:fill={octaveLineColor(note.octave)} x={note.frame * CELL + CELL / 2} {y}>{note.digit}</text>
                   {/if}
                   {#each { length: note.frames - (note.tied ? 0 : 1) } as _, i}
                     {@const frame = note.frame + (note.tied ? 0 : 1) + i}
-                    <line class="hold" style:stroke={pitchColor(parseInt(note.digit, 16))} x1={frame * CELL + CELL / 5} x2={(frame + 1) * CELL - CELL / 5} y1={y} y2={y} />
+                    <line class="hold" style:stroke={octaveLineColor(note.octave)} x1={frame * CELL + CELL / 5} x2={(frame + 1) * CELL - CELL / 5} y1={y} y2={y} />
                   {/each}
                 {/each}
               </g>
