@@ -1,0 +1,28 @@
+/** A note segment inside one measure. Times are in the song's ticks. */
+export type SongNote = {
+  /** Offset from the start of the measure. */
+  start: number;
+  duration: number;
+  midi: number;
+  /** True when this segment continues a note tied over from the previous measure. */
+  tied?: boolean;
+};
+
+export type SongMeasure = {
+  number: string;
+  /** Length of the measure in ticks. */
+  duration: number;
+  /** Smallest note or rest unit in the measure, in ticks. */
+  resolution: number;
+  notes: SongNote[];
+};
+
+/** The simplified, staff-free form of a score: which key is pressed when. */
+export type Song = {
+  id: string;
+  title: string;
+  composer: string;
+  ticksPerQuarter: number;
+  source: { dataset: string; path: string; url?: string; license?: string };
+  measures: SongMeasure[];
+};

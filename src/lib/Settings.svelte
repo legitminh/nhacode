@@ -1,10 +1,13 @@
 <script lang="ts">
-  import { Button, SubKeyframe, interaction } from '@legitminh/keyflow';
+  import { Button, SubKeyframe, interaction, lockstep_scrolling, min_box } from '@legitminh/keyflow';
   import { instruments } from './audio/instruments';
   import { parseOctaveRange } from './notes';
+  import { MARGIN_MAX, MARGIN_STEP, SIDES, type Margins, type Side } from './margins';
+  import { KEY_BORDER_MAX, LINE_MAX, LINE_MIN, LINE_STEP, type LineWidths } from './sheet/lines';
+  import BoxInput from './BoxInput.svelte';
 
-  let { open = $bindable(false), transposed, instrumentId, range,
-    ontranspose, oninstrument, onrange }: {
+  let { open = $bindable(false), transposed, instrumentId, range, margins, lineWidths,
+    ontranspose, oninstrument, onrange, onmargin, online, keyBorder, onkeyborder }: {
     open?: boolean;
     transposed: boolean;
     instrumentId: string;
@@ -12,10 +15,24 @@
     ontranspose: (value: boolean) => void;
     oninstrument: (id: string) => void;
     onrange: (value: string, octaves: number[]) => void;
+    margins: Margins;
+    onmargin: (side: Side, value: number) => void;
+    lineWidths: LineWidths;
+    online: (line: keyof LineWidths, value: number) => void;
+    keyBorder: number;
+    onkeyborder: (value: number) => void;
   } = $props();
+  const sideName = (side: Side) => side[0].toUpperCase() + side.slice(1);
+  const LINES = [['origin', 'Origin line'], ['octave', 'Octave lines']] as const;
   let lower = $state('0');
   let upper = $state('8');
   let rangeError = $state('');
+  // Keyflow's zoom step: min-box grows or shrinks by a factor of 1.25. Keyflow saves it.
+  const ZOOM = 1.25;
+  function zoom(direction: 1 | -1) {
+    const next = min_box.value * ZOOM ** direction;
+    min_box.set(Math.min(160, Math.max(12, Math.round(next * 100) / 100)));
+  }
   const instrument = $derived(instruments.find((item) => item.id === instrumentId)!);
   const choices = instruments.map((option) => ({
     id: option.id, label: option.name, on_select: () => oninstrument(option.id),
@@ -52,7 +69,6 @@
   }
 </script>
 
-<div class="settings-bar">
   <SubKeyframe label="Settings" enterTrigger="esc" class="settings-menu" bind:open
     onopen={() => {
       const endpoints = range.match(/\d+/g)!;
@@ -84,7 +100,31 @@
         </div>
         {#if rangeError}<p class="range-error" role="alert">{rangeError}</p>{/if}
       </div>
+      <div class="min-box-setting">
+        <span>Min box: {Math.round(min_box.value)}px</span>
+        <Button on_close={() => zoom(1)} disabled={min_box.value >= 160}>Increase</Button>
+        <Button on_close={() => zoom(-1)} disabled={min_box.value <= 12}>Decrease</Button>
+      </div>
+      <SubKeyframe label="Keyboard layout" class="margin-menu">
+        {#snippet children(sub)}
+          <BoxInput label="Key border" value={keyBorder} min={0} max={KEY_BORDER_MAX} step={0.01}
+            disabled={!sub.active} onchange={onkeyborder} />
+          {#each SIDES as side}
+            <BoxInput label={sideName(side)} value={margins[side]} min={0} max={MARGIN_MAX} step={MARGIN_STEP}
+              disabled={!sub.active} onchange={(value) => onmargin(side, value)} />
+          {/each}
+        {/snippet}
+      </SubKeyframe>
+      <SubKeyframe label="Sheet lines" class="margin-menu">
+        {#snippet children(sub)}
+          {#each LINES as [line, name]}
+            <BoxInput label={name} value={lineWidths[line]} min={LINE_MIN} max={LINE_MAX} step={LINE_STEP}
+              disabled={!sub.active} onchange={(value) => online(line, value)} />
+          {/each}
+        {/snippet}
+      </SubKeyframe>
       <Button on_close={() => ontranspose(!transposed)}>Transpose display: {transposed ? 'On' : 'Off'}</Button>
+      <Button on_close={() => lockstep_scrolling.set(!lockstep_scrolling.enabled)}
+        >Lockstep scrolling: {lockstep_scrolling.enabled ? 'On' : 'Off'}</Button>
     {/snippet}
   </SubKeyframe>
-</div>

@@ -19,10 +19,19 @@ Requires Node 22.18+ (Node 24 recommended). Open the local URL printed by Vite.
 - Rows, top to bottom: A, A♯, B, C, C♯, D, D♯, E, F, F♯, G, G♯.
 - Columns run from the lowest octave on the left to the highest on the right.
 - Keys use centered, unbracketed hexadecimal labels at Keyflow's `--min-box` font
-  size (48px, reduced only to fit smaller cells), all in the same theme color.
+  size (48px, reduced only to fit smaller cells). Each pitch class 0–b has its own
+  hue from Keyflow's `distribute_color`, shared with the sheet screen.
 - Hold the primary mouse button and glide between keys, or drag a finger across
   them. Notes stop when the cursor/contact leaves, lifts, or is cancelled.
   Hovering without pressing is silent.
+- Every font size follows Keyflow's `--min-box` (glyphs at 0.8 box, one box per
+  line). **Settings → Min box** has Increase and Decrease buttons that scale it by
+  1.25, like Keyflow's zoom, between 12 and 160 px; Keyflow remembers the value.
+- Each key's border uses its octave's Keyflow color (`distribute_color` index =
+  octave, the same color as that octave's sheet line).
+- **Settings → Keyboard layout** has number fields, in min-box units, for the key
+  border width (0–0.25, default 0.04) and the top, right, bottom and left margins
+  (0–10, step 0.25). Keys shrink to fit.
 - The settings icon at the top left opens with a click or **Escape**; its shortcut
   appears on hover or keyboard focus. It contains instrument, octave-range and
   transpose controls, implemented with Keyflow's `SubKeyframe` and interaction action.
@@ -45,6 +54,58 @@ Requires Node 22.18+ (Node 24 recommended). Open the local URL printed by Vite.
   the system-selected output route instead of relying on another Safari page to
   initialize it. Touch release and click retry activation for stricter iOS gesture
   policies. Headphone pairing and output-device selection remain system settings.
+
+### Sheet screen
+
+The top bar has two Keyflow toggles: **sheet** (shortcut S) and the keyboard icon
+(shortcut K). Either screen can be on or off; when both are on they sit side by
+side. The choice is remembered per browser. While the sheet is on, the **Song**
+menu (M) sits on the same toolbar line.
+
+The sheet has no stave; it only shows which key is pressed when:
+
+- Each measure is divided into time frames of its *resolution*, the smallest
+  note or rest unit in that measure. One frame is one character cell.
+- A note's start shows its pitch class in lowercase hex (0 = A … b = G♯); each
+  further frame it is held shows a dash. Ties from the previous measure show
+  dashes only. Empty frames are blank.
+- Notes sounding together stack by ascending pitch (lower on top); notes that
+  don't overlap share a row.
+- Each stream (line of measures) starts with one thick line above octave 0. Each
+  higher octave adds a thin line above its block, drawn only over the frames that
+  reach that octave, so the number of lines above a digit is its octave. Lines are
+  colored with Keyflow's `distribute_color` by index: the thick origin line is 0,
+  the line above octave n is n (the same hues as digits 0–b).
+- Measures wrap to a new stream at the screen edge.
+- **Settings → Sheet lines** has number fields for the origin line and octave line
+  stroke widths, in min-box units (0.01–0.25; defaults 0.06 and 0.03).
+- The sheet sits in Keyflow's `Document`. **Settings → Lockstep scrolling** switches
+  between native scrolling and Keyflow's lockstep paging (wheel, swipe, or the ↓/↑
+  buttons move one page, landing on a stream's top). Keyflow remembers the mode.
+
+Scores come from [PDMX](https://github.com/pnlong/PDMX) (Zenodo record
+15571083). `scripts/pdmx.py` searches `PDMX.csv`, streams `mxl.tar.gz` until the
+score is found, and caches the raw MXL in `data/pdmx/pdmx.sqlite` (gitignored).
+It then writes the simplified song to `src/songs/<id>.json`, which is committed:
+
+```bash
+python3 scripts/pdmx.py search "fur elise"
+python3 scripts/pdmx.py fetch fur-elise "fur elise"
+python3 scripts/pdmx.py simplify fur-elise "Für Elise"
+```
+
+Repeats are shown as written, not unrolled. Grace notes are omitted.
+
+### Saved settings
+
+Every setting (views, song, instrument, octave range, transpose, margins, sheet
+line widths, min-box and lockstep scrolling) is stored in `localStorage` under
+`nhacode:`, which an installed PWA keeps across launches. On start the app calls
+`navigator.storage.persist()` so the browser does not evict that storage;
+`<html data-storage>` reports `persistent` or `best-effort`. Keyflow 0.7 itself
+writes its preferences to `sessionStorage`, so `src/lib/preferences.ts` mirrors
+min-box, lockstep and theme into `localStorage` and seeds them back before
+Keyflow starts.
 
 ### Octave convention
 

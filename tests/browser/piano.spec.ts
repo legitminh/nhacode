@@ -33,7 +33,7 @@ test.beforeEach(async ({ page }) => {
 
 test('all 96 Keyflow keys fit desktop and mobile viewports without scrolling', async ({ page }) => {
   await expect(page.locator('.piano-matrix .keyflow-key')).toHaveCount(96);
-  await expect(page.locator('button')).toHaveCount(97);
+  await expect(page.locator('button')).toHaveCount(99); // 96 keys, settings and the two view toggles
   await expect(page.locator('header, footer, select, h1, h2, .shortcut')).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Settings', exact: true })).toHaveCount(0);
   for (const selector of ['link[rel="icon"]']) {
@@ -75,7 +75,7 @@ test('all 96 Keyflow keys fit desktop and mobile viewports without scrolling', a
           fits: label.width <= key.width && label.height <= key.height,
         };
       }));
-      expect(new Set(labels.map((label) => label.color)).size).toBe(1);
+      expect(new Set(labels.map((label) => label.color)).size).toBe(12); // one Keyflow color per pitch class
       for (const label of labels) {
         expect(label.text).toMatch(/^[0-9ab]$/);
         expect(Math.abs(label.dx)).toBeLessThan(1);

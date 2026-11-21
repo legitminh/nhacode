@@ -28,25 +28,99 @@ main {
   --key-size: var(--min-box);
 }
 
+/* Every text size follows Keyflow's min-box: glyphs are 0.8 box, lines are one box. */
+:root { --text-size: calc(var(--min-box) * .8); }
+
 main.transposed { --rows: 8; --columns: 12; }
 
 .settings-bar {
-  height: 40px;
+  height: var(--min-box);
   flex-shrink: 0;
   padding-left: .5rem;
   display: flex;
   align-items: center;
+  gap: .5rem;
 }
+
+.view-toggle > button { display: flex; align-items: center; }
+.view-toggle .button { position: relative; }
+.view-toggle .button .content.content {
+  display: flex;
+  align-items: center;
+  height: var(--min-box);
+  padding: 0 calc(var(--min-box) / 4);
+  box-sizing: border-box;
+  border: 1px solid var(--primary);
+  border-radius: .25rem;
+  color: var(--primary);
+  background: var(--background);
+  font: var(--text-size) / var(--min-box) var(--font-mono);
+}
+.view-toggle.on .button .content.content { color: var(--background); background: var(--primary); }
+.view-toggle-content { display: flex; align-items: center; }
+/* Like the settings icon, the shortcut appears on hover or focus. */
+.view-toggle .route {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1;
+  visibility: hidden;
+  pointer-events: none;
+  background: var(--background);
+}
+.view-toggle > button:hover .route, .view-toggle > button:focus-visible .route { visibility: visible; }
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The keyboard and sheet screens sit side by side and share the width. */
+.views {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.views > * { flex: 1 1 0; min-width: 0; min-height: 0; }
+.views > * + * { border-left: 1px solid var(--tertiary); }
+.keyboard-view {
+  display: flex;
+  flex-direction: column;
+  container-type: size;
+}
+.sheet-view { overflow: hidden; }
+.song-select { position: relative; min-width: 0; }
+.song-select > .subkeyframe-trigger { white-space: nowrap; }
+.song-select > .subkeyframe-trigger .content { background: transparent; }
+.settings-bar .song-select > .subkeyframe-panel {
+  position: fixed;
+  inset: var(--min-box) .5rem auto auto;
+  z-index: 2;
+  box-sizing: border-box;
+  width: min(calc(var(--min-box) * 12), calc(100vw - 1rem));
+  max-height: calc(100dvh - var(--min-box) - 8px);
+  overflow-y: auto;
+  padding: 1rem;
+  color: var(--primary);
+  background: var(--background);
+  border: 1px solid var(--primary);
+  border-radius: .25rem;
+  font: var(--text-size) / var(--min-box) var(--font-mono);
+}
+.song-select .subkeyframe-items button { display: block; width: 100%; border: 1px solid currentColor; padding: 0 calc(var(--min-box) / 4); text-align: left; font: var(--text-size) / var(--min-box) var(--font-mono); }
 
 .settings-menu > .subkeyframe-trigger {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: var(--min-box);
+  height: var(--min-box);
   color: var(--primary);
-  font-size: 16px;
-  line-height: 1;
+  font-size: var(--text-size);
+  line-height: var(--min-box);
 }
 
 .settings-menu > .subkeyframe-trigger .button { position: relative; }
@@ -58,18 +132,17 @@ main.transposed { --rows: 8; --columns: 12; }
   visibility: hidden;
   pointer-events: none;
   background: var(--background);
-  font-size: 12px;
 }
 .settings-menu > .subkeyframe-trigger:hover .route,
 .settings-menu > .subkeyframe-trigger:focus-visible .route { visibility: visible; }
 
 .settings-bar .settings-menu > .subkeyframe-panel {
   position: fixed;
-  inset: 40px auto auto .5rem;
+  inset: var(--min-box) auto auto .5rem;
   z-index: 2;
   box-sizing: border-box;
-  width: min(24rem, calc(100vw - 1rem));
-  max-height: calc(100dvh - 48px);
+  width: min(calc(var(--min-box) * 12), calc(100vw - 1rem));
+  max-height: calc(100dvh - var(--min-box) - 8px);
   overflow-y: auto;
   margin: 0;
   padding: 1rem;
@@ -77,29 +150,48 @@ main.transposed { --rows: 8; --columns: 12; }
   background: var(--background);
   border: 1px solid var(--primary);
   border-radius: .25rem;
-  font: 1rem / 1.5 var(--font-mono);
+  font: var(--text-size) / var(--min-box) var(--font-mono);
 }
 
-.settings-menu .subkeyframe-panel button { font-size: 1rem; line-height: 1.5; text-align: left; }
+.settings-menu .subkeyframe-panel button { font-size: var(--text-size); line-height: var(--min-box); text-align: left; }
 .settings-menu .subkeyframe-panel > button,
 .instrument-select > button,
-.instrument-select .subkeyframe-items button { display: block; width: 100%; border: 1px solid currentColor; padding: .5rem; }
+.instrument-select .subkeyframe-items button { display: block; width: 100%; border: 1px solid currentColor; padding: 0 calc(var(--min-box) / 4); }
 .settings-menu .button .content, .settings-menu .button .pending_route { background: var(--background); }
 .settings-menu .subkeyframe-panel .route { margin-right: .5rem; }
 .octave-range .keyflow-textbox { margin: .25rem 0 0; }
-.range-endpoints { display: flex; align-items: center; gap: .5rem; margin-top: .25rem; }
-.range-endpoints input {
+.min-box-setting { display: flex; flex-wrap: wrap; align-items: center; gap: 0 .5rem; margin-top: .25rem; }
+.min-box-setting > span { flex-basis: 100%; }
+.margin-menu > button { display: block; width: 100%; border: 1px solid currentColor; padding: 0 calc(var(--min-box) / 4); }
+.box-input { display: flex; align-items: center; gap: .5rem; margin-top: .25rem; min-width: 0; }
+.box-input > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.box-input > input {
   box-sizing: border-box;
+  flex: 0 1 calc(var(--min-box) * 3.5);
   min-width: 0;
-  width: 5rem;
-  padding: .5rem;
+  height: var(--min-box);
+  padding: 0 calc(var(--min-box) / 4);
   border: 1px solid var(--primary);
   border-radius: .25rem;
   color: var(--primary);
   background: var(--background);
   font: inherit;
 }
-.range-error { margin: .25rem 0 0; font-size: .875rem; line-height: 1.5; }
+.min-box-setting > button { flex: 1; border: 1px solid currentColor; padding: 0 calc(var(--min-box) / 4); }
+.range-endpoints { display: flex; align-items: center; gap: .5rem; margin-top: .25rem; }
+.range-endpoints input {
+  box-sizing: border-box;
+  min-width: 0;
+  width: calc(var(--min-box) * 2.5);
+  padding: 0 calc(var(--min-box) / 4);
+  height: var(--min-box);
+  border: 1px solid var(--primary);
+  border-radius: .25rem;
+  color: var(--primary);
+  background: var(--background);
+  font: inherit;
+}
+.range-error { margin: .25rem 0 0; font-size: var(--text-size); line-height: var(--min-box); }
 .settings-menu > .subkeyframe-trigger:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
 
 main .piano-matrix.keyflow-keyboard {
@@ -109,8 +201,8 @@ main .piano-matrix.keyflow-keyboard {
   grid-template-rows: repeat(var(--rows), minmax(0, 1fr));
   --keyboard-key-height: 0;
   --min-box: min(var(--key-size),
-    calc((100dvw - 1rem - (var(--columns) - 1) * .3rem) / var(--columns) - 2px),
-    calc((100dvh - 40px - 1rem - (var(--rows) - 1) * .3rem) / var(--rows) - 2px));
+    calc((100cqw - 1rem - (var(--columns) - 1) * .3rem) / var(--columns) - 2px),
+    calc((100cqh - 1rem - (var(--rows) - 1) * .3rem) / var(--rows) - 2px));
   --keyboard-font-size: var(--min-box);
   --keyboard-pressed-color: var(--background);
 }
@@ -125,6 +217,10 @@ main .piano-matrix.keyflow-keyboard {
 .piano-cell { min-width: 0; min-height: 0; }
 
 .piano-matrix .piano-cell .keyflow-key {
+  /* Border: the octave's Keyflow color, width in (settings) min-box units. */
+  border-color: var(--octave-color, var(--key-color));
+  border-width: calc(var(--key-size) * var(--key-border, .04));
+  box-sizing: border-box;
   width: 100%;
   height: 100%;
   display: flex;
@@ -137,3 +233,5 @@ main .piano-matrix.keyflow-keyboard {
   user-select: none;
   -webkit-user-select: none;
 }
+
+.settings-menu > .subkeyframe-trigger svg, .view-toggle svg { width: var(--text-size); height: var(--text-size); }
