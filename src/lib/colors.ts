@@ -10,8 +10,8 @@ export function pitchColor(row: number): string {
 }
 
 /**
- * Octave lines use the same Keyflow distribution: the thick origin line above
- * octave 0 is index 0, the line above octave 1 is index 1, and so on.
+ * Octaves use the same Keyflow distribution: octave n (its sheet line and its
+ * piano-key borders) is index n, so the thick origin line above octave 0 is 0.
  */
 export function octaveLineColor(index: number): string {
   return pitchColor(index % 12);

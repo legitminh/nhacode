@@ -80,7 +80,7 @@ test('song menu sits on the toolbar and keyboard margins are min-box number fiel
   expect(Math.abs(song.y + song.height / 2 - (settings.y + settings.height / 2))).toBeLessThan(4);
 
   await page.getByRole('button', { name: /Settings/ }).click();
-  await page.getByRole('button', { name: /Keyboard margins/ }).click();
+  await page.getByRole('button', { name: /Keyboard layout/ }).click();
   const left = page.getByRole('spinbutton', { name: 'Left' });
   await left.fill('0.5'); // half a min-box: 24px at the default 48px
   await left.press('Enter');
@@ -148,4 +148,23 @@ test('sheet line widths are adjustable and every setting survives closing the ap
   await expect(next.locator('.sheet-scroll .world')).toHaveAttribute('style', /translateY/);
   expect(await next.evaluate(() => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--min-box')))).toBeCloseTo(38.4);
   await expect(next.locator('html')).toHaveAttribute('data-storage', /persistent|best-effort/);
+});
+
+test('key borders take their octave color and a min-box border width from Settings', async ({ page }) => {
+  const border = (note: string) => page.locator(`[data-note="${note}"] .keyflow-key`).evaluate((key) => {
+    const style = getComputedStyle(key);
+    return { color: style.borderTopColor, width: parseFloat(style.borderTopWidth) };
+  });
+  // Octave n uses distribute_color index n, like sheet line n.
+  expect((await border('0-0')).color).toBe('rgb(182, 32, 32)');
+  expect((await border('0-5')).color).toBe('rgb(182, 32, 32)');
+  expect((await border('1-0')).color).not.toBe((await border('0-0')).color);
+  await page.getByRole('button', { name: /Settings/ }).click();
+  await page.getByRole('button', { name: /Keyboard layout/ }).click();
+  await page.getByRole('spinbutton', { name: 'Key border' }).fill('0.1');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+  // 0.1 × 48px = 4.8px; browsers snap border widths down to whole device pixels.
+  await expect.poll(async () => (await border("0-0")).width).toBeGreaterThanOrEqual(4);
 });

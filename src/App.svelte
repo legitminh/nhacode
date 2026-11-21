@@ -12,7 +12,7 @@
   import { instruments } from './lib/audio/instruments';
   import type { InstrumentDefinition } from './lib/audio/types';
   import { clampMargin, loadMargins, saveMargins, type Side } from './lib/margins';
-  import { clampLine, loadLineWidths, saveLineWidths, type LineWidths } from './lib/sheet/lines';
+  import { clampKeyBorder, clampLine, loadKeyBorder, loadLineWidths, saveKeyBorder, saveLineWidths, type LineWidths } from './lib/sheet/lines';
   import { isBoolean, isString, readPref, saveKeyflowPreference, writePref } from './lib/preferences';
 
   // Every user setting is read from, and written to, permanent browser storage.
@@ -33,6 +33,7 @@
   let showSheet = $state(readPref('view:sheet', false, isBoolean));
   let margins = $state(loadMargins());
   let lineWidths = $state(loadLineWidths());
+  let keyBorder = $state(loadKeyBorder());
   let songId = $state(readPref('song', songs[0]?.id ?? '', (value): value is string => songs.some((song) => song.id === value)));
   let generation = 0;
   const noteRows = $derived(NOTE_NAMES.map((_, row) => octaves.map((octave) => noteAt(octave, row))));
@@ -146,6 +147,11 @@
     writePref('transposed', value);
   }
 
+  function setKeyBorder(value: number) {
+    keyBorder = clampKeyBorder(value);
+    saveKeyBorder(keyBorder);
+  }
+
   function setLineWidth(line: keyof LineWidths, value: number) {
     lineWidths = { ...lineWidths, [line]: clampLine(value) };
     saveLineWidths(lineWidths);
@@ -163,11 +169,12 @@
     data-views={[showKeyboard && 'keyboard', showSheet && 'sheet'].filter(Boolean).join(' ')}
     use:interaction={{ on_pressed_down: pointerDown, on_pressed_up: pointerUp,
       on_cursor_exit: (event) => { if (event.pointer_type !== 'touch') releaseMouse(); } }}
-    style:--rows={transposed ? octaves.length : 12} style:--columns={transposed ? 12 : octaves.length}>
+    style:--key-border={keyBorder} style:--rows={transposed ? octaves.length : 12} style:--columns={transposed ? 12 : octaves.length}>
     <div class="settings-bar">
       <Settings bind:open={settingsOpen} {transposed} {instrumentId} {range}
         ontranspose={setTransposed} oninstrument={selectInstrument} onrange={selectRange}
-        {margins} onmargin={setMargin} {lineWidths} online={setLineWidth} />
+        {margins} onmargin={setMargin} {lineWidths} online={setLineWidth}
+        {keyBorder} onkeyborder={setKeyBorder} />
       <ViewToggle label="Sheet" shortcut="s" on={showSheet} disabled={settingsOpen} ontoggle={() => toggleView('sheet')}>sheet</ViewToggle>
       <ViewToggle label="Keyboard" shortcut="k" on={showKeyboard} disabled={settingsOpen} ontoggle={() => toggleView('keyboard')}>
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">

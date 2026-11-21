@@ -3,11 +3,11 @@
   import { instruments } from './audio/instruments';
   import { parseOctaveRange } from './notes';
   import { MARGIN_MAX, MARGIN_STEP, SIDES, type Margins, type Side } from './margins';
-  import { LINE_MAX, LINE_MIN, LINE_STEP, type LineWidths } from './sheet/lines';
+  import { KEY_BORDER_MAX, LINE_MAX, LINE_MIN, LINE_STEP, type LineWidths } from './sheet/lines';
   import BoxInput from './BoxInput.svelte';
 
   let { open = $bindable(false), transposed, instrumentId, range, margins, lineWidths,
-    ontranspose, oninstrument, onrange, onmargin, online }: {
+    ontranspose, oninstrument, onrange, onmargin, online, keyBorder, onkeyborder }: {
     open?: boolean;
     transposed: boolean;
     instrumentId: string;
@@ -19,6 +19,8 @@
     onmargin: (side: Side, value: number) => void;
     lineWidths: LineWidths;
     online: (line: keyof LineWidths, value: number) => void;
+    keyBorder: number;
+    onkeyborder: (value: number) => void;
   } = $props();
   const sideName = (side: Side) => side[0].toUpperCase() + side.slice(1);
   const LINES = [['origin', 'Origin line'], ['octave', 'Octave lines']] as const;
@@ -103,8 +105,10 @@
         <Button on_close={() => zoom(1)} disabled={min_box.value >= 160}>Increase</Button>
         <Button on_close={() => zoom(-1)} disabled={min_box.value <= 12}>Decrease</Button>
       </div>
-      <SubKeyframe label="Keyboard margins" class="margin-menu">
+      <SubKeyframe label="Keyboard layout" class="margin-menu">
         {#snippet children(sub)}
+          <BoxInput label="Key border" value={keyBorder} min={0} max={KEY_BORDER_MAX} step={0.01}
+            disabled={!sub.active} onchange={onkeyborder} />
           {#each SIDES as side}
             <BoxInput label={sideName(side)} value={margins[side]} min={0} max={MARGIN_MAX} step={MARGIN_STEP}
               disabled={!sub.active} onchange={(value) => onmargin(side, value)} />

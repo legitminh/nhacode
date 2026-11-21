@@ -1,7 +1,7 @@
 <script lang="ts">
   import { KeyboardKeyDisplay, type InteractionEvent } from '@legitminh/keyflow';
   import type { PianoNote } from './notes';
-  import { pitchColor } from './colors';
+  import { octaveLineColor, pitchColor } from './colors';
 
   let { note, pressed, disabled, mouseDown, onpress, onrelease, onactivate }: {
     note: PianoNote;
@@ -31,7 +31,7 @@
   function exit(event: InteractionEvent) { onrelease(pointerSource(event)); }
 </script>
 
-<div class="piano-cell" class:sounding={pressed} data-note={note.id} data-midi={note.midi}>
+<div class="piano-cell" class:sounding={pressed} style:--octave-color={octaveLineColor(note.octave)} data-note={note.id} data-midi={note.midi}>
   <KeyboardKeyDisplay key={note.hex} label={`${note.name}, octave ${note.octave}, key ${note.hex}`}
     {pressed} {disabled} color={pitchColor(note.row)} on_pressed_down={down} on_pressed_up={up}
     on_cursor_enter={enter} on_cursor_exit={exit}

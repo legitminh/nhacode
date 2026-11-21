@@ -27,8 +27,11 @@ Requires Node 22.18+ (Node 24 recommended). Open the local URL printed by Vite.
 - Every font size follows Keyflow's `--min-box` (glyphs at 0.8 box, one box per
   line). **Settings → Min box** has Increase and Decrease buttons that scale it by
   1.25, like Keyflow's zoom, between 12 and 160 px; Keyflow remembers the value.
-- **Settings → Keyboard margins** has number fields for the top, right, bottom
-  and left margins, in min-box units (0–10, step 0.25). Keys shrink to fit.
+- Each key's border uses its octave's Keyflow color (`distribute_color` index =
+  octave, the same color as that octave's sheet line).
+- **Settings → Keyboard layout** has number fields, in min-box units, for the key
+  border width (0–0.25, default 0.04) and the top, right, bottom and left margins
+  (0–10, step 0.25). Keys shrink to fit.
 - The settings icon at the top left opens with a click or **Escape**; its shortcut
   appears on hover or keyboard focus. It contains instrument, octave-range and
   transpose controls, implemented with Keyflow's `SubKeyframe` and interaction action.
