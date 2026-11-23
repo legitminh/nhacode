@@ -69,7 +69,21 @@ Playback works like MuseScore's: ▶ plays the song from the playhead with the
 app's instrument pack, following the score's tempo changes, and ⏸ pauses. The
 current time frame is highlighted, and clicking any measure moves the playhead
 there (playback continues from it). **Sheet pane → Playback** hides the tool and
-**Playback instrument** picks grand piano, violin, cello or flute. Its search
+**Playback instrument** picks grand piano, violin, cello or flute.
+
+The toolbar reads, left to right: **playback** (O), ▶/⏸ (P), the song title (M),
+**metronome** (T) and the metronome's ▶/⏸ (N).
+
+- **playback → Start playback from** puts a ▶ triangle (a Keyflow `ButtonPositional`)
+  at the start of every measure in its own input frame: click one or type its
+  shortcut to start there, Escape cancels, and the sheet keeps scrolling.
+- The metronome follows the score's meter and tempo from the playhead (or along with
+  playback): a strong click on each measure's downbeat, weaker clicks on the other
+  beats (compound meters such as 6/8 beat in dotted quarters; pickups have no
+  downbeat), and optional in-between clicks. Its dashed cursor moves across the
+  sheet. **metronome** sets Strong beat, Beat and In-between strength (0–8, 0 is
+  silent) and In-between beats per beat (0–7) with Keyflow `NumberBox` fields.
+- Playback, instrument and metronome settings are saved in the browser. Its search
 box is Keyflow's `TextBox`: the screen opens with its tag and song shortcuts live,
 **/** starts typing (results filter as you type), Escape stops typing, and Enter
 picks the first match.

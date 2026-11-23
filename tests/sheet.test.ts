@@ -115,3 +115,21 @@ test('the playback timeline follows tempo changes and merges tied notes', async 
   const d = timeline.events.filter((event) => event.midi === 62);
   assert.deepEqual(d.map((event) => [event.on, event.time]), [[true, 2000], [false, 5000]]);
 });
+
+test('metronome clicks follow the meter: strong downbeats, weak beats, pickups and in-between clicks', async () => {
+  const { Timeline } = await import('../src/lib/sheet/timeline.ts');
+  const song = {
+    id: 's', title: 'S', composer: '', ticksPerQuarter: 2, source: { dataset: 'x', path: 'x' },
+    measures: [
+      { number: '0', duration: 2, resolution: 1, time: [3, 4] as [number, number], tempos: [{ start: 0, qpm: 60 }], notes: [] }, // pickup
+      { number: '1', duration: 6, resolution: 1, notes: [] },
+      { number: '2', duration: 6, resolution: 1, time: [6, 8] as [number, number], notes: [] }, // compound: 2 dotted-quarter beats
+    ],
+  };
+  const timeline = new Timeline(song);
+  const clicks = (between = 0) => timeline.clicks(between).map((click) => `${click.position.measure}:${click.position.tick}:${click.kind}`);
+  assert.deepEqual(clicks(), ['0:0:weak', '1:0:strong', '1:2:weak', '1:4:weak', '2:0:strong', '2:3:weak']);
+  assert.deepEqual(clicks(1).slice(0, 4), ['0:0:weak', '0:1:sub', '1:0:strong', '1:1:sub']);
+  // At 60 qpm with two ticks per quarter, the first full measure starts after the 2-tick pickup: 1 s.
+  assert.equal(timeline.clicks()[1].time, 1000);
+});

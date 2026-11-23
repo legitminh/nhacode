@@ -8,6 +8,9 @@
   import SongMenu from './lib/sheet/SongMenu.svelte';
   import PlayButton from './lib/sheet/PlayButton.svelte';
   import { Player } from './lib/sheet/player.svelte';
+  import { DEFAULT_METRONOME, Metronome, type MetronomeSettings } from './lib/sheet/metronome.svelte';
+  import PlaybackMenu from './lib/sheet/PlaybackMenu.svelte';
+  import MetronomeMenu from './lib/sheet/MetronomeMenu.svelte';
   import { songs } from './lib/sheet/songs';
   import { NOTE_NAMES, noteAt, parseOctaveRange, type PianoNote } from './lib/notes';
   import { AudioEngine } from './lib/audio/engine';
@@ -42,8 +45,17 @@
   const savedPlaybackInstrument = instruments.find((item) => item.id === readPref('sheet:playback-instrument', '', isString)) ?? instruments[0];
   let playbackInstrumentId = $state(savedPlaybackInstrument.id);
   const player = new Player(savedPlaybackInstrument);
+  const isMetronome = (value: unknown): value is MetronomeSettings => typeof value === 'object' && value !== null
+    && (['strong', 'weak', 'between', 'sub'] as const).every((key) => Number.isInteger((value as MetronomeSettings)[key]));
+  const savedMetronome = readPref('sheet:metronome', DEFAULT_METRONOME, isMetronome);
+  let metronomeSettings = $state(savedMetronome);
+  const metronome = new Metronome(savedMetronome);
+  // The metronome follows whichever song the player has loaded.
+  $effect(() => { metronome.load(player.timeline); });
+  let picking = $state(false);
   // Playback only runs while the sheet and its playback tool are shown.
-  $effect(() => { if (!showSheet || !playback) player.pause(); });
+  $effect(() => { if (!showSheet || !playback) { player.pause(); picking = false; } });
+  $effect(() => { if (!showSheet) metronome.stop(); });
   let songId = $state(readPref('song', (songs.find((song) => song.id === 'fur-elise') ?? songs[0])?.id ?? '', (value): value is string => songs.some((song) => song.id === value)));
   let generation = 0;
   const noteRows = $derived(NOTE_NAMES.map((_, row) => octaves.map((octave) => noteAt(octave, row))));
@@ -154,6 +166,22 @@
     writePref('transposed', value);
   }
 
+  function setMetronome(settings: MetronomeSettings) {
+    metronomeSettings = settings;
+    metronome.configure(settings);
+    writePref('sheet:metronome', settings);
+  }
+
+  function toggleMetronome() {
+    if (metronome.running) metronome.stop();
+    else void metronome.start(player.songTime());
+  }
+
+  function pickStart(measure: number) {
+    picking = false;
+    player.seek(measure);
+  }
+
   function setPlayback(value: boolean) {
     playback = value;
     writePref('sheet:playback', value);
@@ -186,7 +214,7 @@
   }
 
   onMount(() => { void prepare(); });
-  onDestroy(() => { engine.dispose(); player.dispose(); });
+  onDestroy(() => { engine.dispose(); player.dispose(); metronome.dispose(); });
 </script>
 
 <Keyflow options={{ storagePrefix: 'nhacode:', lockstep: false, themes: [
@@ -215,8 +243,14 @@
         </svg>
       </ViewToggle>
       {#if showSheet}
-        {#if playback}<PlayButton playing={player.playing} disabled={settingsOpen} ontoggle={() => player.toggle()} />{/if}
+        {#if playback}
+          <PlaybackMenu disabled={settingsOpen} onpick={() => { picking = true; }} />
+          <PlayButton playing={player.playing} disabled={settingsOpen} ontoggle={() => player.toggle()} />
+        {/if}
         <SongMenu {songId} disabled={settingsOpen} onselect={selectSong} />
+        <MetronomeMenu settings={metronomeSettings} disabled={settingsOpen} onchange={setMetronome} />
+        <PlayButton playing={metronome.running} disabled={settingsOpen} ontoggle={toggleMetronome}
+          keys="n" name="metronome" class="metronome-toggle" />
       {/if}
     </div>
     <div class="views">
@@ -238,6 +272,7 @@
       {#if showSheet}
         <div class="sheet-view"><Sheet {songId} {lineWidths} {separateHands} {inverted}
           playhead={playback ? player.position : undefined} onseek={playback ? (measure) => player.seek(measure) : undefined}
+          metronomeHead={metronome.position} {picking} onpick={pickStart} oncancelpick={() => { picking = false; }}
           onsong={(song) => player.load(song)} /></div>
       {/if}
     </div>

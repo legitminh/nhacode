@@ -264,3 +264,31 @@ main .piano-matrix.keyflow-keyboard {
 
 .theme-setting { display: flex; align-items: center; gap: .5rem; margin-top: .25rem; }
 .theme-setting button { flex: 1; border: 1px solid currentColor; padding: 0 calc(var(--min-box) / 4); }
+
+/* Toolbar menus (playback, metronome): a text trigger with its panel dropping below the toolbar. */
+.toolbar-menu { position: relative; }
+.toolbar-menu > .subkeyframe-trigger { white-space: nowrap; }
+.toolbar-menu > .subkeyframe-trigger .content { background: transparent; }
+.settings-bar .toolbar-menu > .subkeyframe-panel {
+  position: fixed;
+  inset: var(--min-box) auto auto .5rem;
+  z-index: 2;
+  box-sizing: border-box;
+  width: min(calc(var(--min-box) * 12), calc(100vw - 1rem));
+  max-height: calc(100dvh - var(--min-box) - 8px);
+  overflow-y: auto;
+  margin: 0;
+  padding: 1rem;
+  color: var(--primary);
+  background: var(--background);
+  border: 1px solid var(--primary);
+  border-radius: .25rem;
+  font: var(--text-size) / var(--min-box) var(--font-mono);
+}
+.toolbar-menu .subkeyframe-panel button { display: block; width: 100%; text-align: left; }
+.toolbar-menu .subkeyframe-items button { border: 1px solid currentColor; padding: 0 calc(var(--min-box) / 4); }
+.metronome-settings { display: flex; flex-direction: column; gap: .25rem; }
+.metronome-row { display: flex; align-items: center; gap: .5rem; }
+.metronome-row > span { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.metronome-settings .metronome-field { display: flex; flex: 0 0 calc(var(--min-box) * 2.5); }
+.metronome-settings .metronome-field button { border: 1px solid currentColor; padding: 0 calc(var(--min-box) / 4); }

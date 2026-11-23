@@ -8,7 +8,7 @@ export class Player {
   playing = $state(false);
   position = $state<Position>({ measure: 0, tick: 0 });
   private engine: AudioEngine;
-  private timeline?: Timeline;
+  timeline = $state.raw<Timeline | undefined>();
   private timer?: ReturnType<typeof setInterval>;
   private origin = 0;   // performance.now() at song time `from`
   private from = 0;     // song time (ms) playback started at
@@ -91,6 +91,12 @@ export class Player {
     if (position.measure !== this.position.measure || Math.floor(position.tick) !== Math.floor(this.position.tick)) {
       this.position = { measure: position.measure, tick: Math.floor(position.tick) };
     }
+  }
+
+  /** The song time (ms) at the playhead, or where playback is right now. */
+  songTime() {
+    if (!this.timeline) return 0;
+    return this.playing && this.timer ? this.from + performance.now() - this.origin : this.timeline.timeAt(this.position);
   }
 
   dispose() {

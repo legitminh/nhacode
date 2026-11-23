@@ -365,3 +365,53 @@ test('sheet playback plays, pauses, seeks to a clicked measure, and is configura
   await page.reload();
   await expect(page.locator('.play-toggle')).toHaveCount(0);
 });
+
+test('playback menu picks a start measure, and the metronome runs with saved settings', async ({ page }) => {
+  await page.getByRole('button', { name: /^Sheet/ }).click();
+  await page.getByRole('button', { name: /^Keyboard/ }).click();
+  // Toolbar order: playback menu, play, song title, metronome menu, metronome toggle.
+  const order = await page.locator('.settings-bar').evaluate((bar) =>
+    ['.playback-menu', '.play-toggle', '.song-select', '.metronome-menu', '.metronome-toggle']
+      .map((selector) => bar.querySelector(selector)!.getBoundingClientRect().x));
+  expect([...order].sort((a, b) => a - b)).toEqual(order);
+
+  await page.keyboard.press('o');
+  await page.getByRole('button', { name: /Start playback from/ }).click();
+  await expect(page.locator('.pick-banner')).toBeVisible();
+  const triangles = page.locator('.pick-start');
+  expect(await triangles.count()).toBeGreaterThan(5);
+  // Scrolling still works while picking.
+  const viewport = page.locator('.sheet-scroll .viewport');
+  await viewport.evaluate((element) => element.scrollBy(0, 200));
+  await expect.poll(() => viewport.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+  await page.locator('.pick-start[data-index="7"] button').click();
+  await expect(page.locator('.pick-banner')).toHaveCount(0);
+  await expect(page.locator('.playhead')).toHaveCount(1);
+  expect(await page.locator('.playhead').evaluate((rect) => rect.closest('[data-index]')!.getAttribute('data-index'))).toBe('7');
+  // Escape cancels picking.
+  await page.keyboard.press('o');
+  await page.getByRole('button', { name: /Start playback from/ }).click();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.pick-banner')).toHaveCount(0);
+
+  // The metronome starts at the playhead and moves its own cursor.
+  await page.keyboard.press('n');
+  await expect(page.locator('.metronome-toggle')).toHaveAttribute('data-playing', 'true');
+  await expect(page.locator('.metronome-head')).toHaveCount(1);
+  await expect.poll(() => page.locator('.metronome-head').evaluate((rect) => Number(rect.closest('[data-index]')!.getAttribute('data-index'))),
+    { timeout: 5000 }).toBeGreaterThan(7);
+  await page.keyboard.press('n');
+  await expect(page.locator('.metronome-toggle')).toHaveAttribute('data-playing', 'false');
+  await expect(page.locator('.metronome-head')).toHaveCount(0);
+
+  // Metronome settings are Keyflow NumberBoxes (0–8) and are remembered.
+  await page.keyboard.press('t');
+  const strong = page.locator('.metronome-row[data-field="strong"]');
+  await strong.getByRole('button').click();
+  const field = strong.getByRole('textbox', { name: 'Strong beat' });
+  await field.fill('3');
+  await field.press('Enter');
+  await expect(strong).toContainText('3');
+  await page.reload();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('nhacode:sheet:metronome')!).strong)).toBe(3);
+});

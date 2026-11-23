@@ -297,6 +297,9 @@ def parse_score(xml):
                         staves = int(element.findtext('staves'))
                     for clef in element.findall('clef'):
                         clefs[clef.get('number', '1')] = clef.findtext('sign', 'G')
+                    meter = element.find('time')
+                    if meter is not None and meter.findtext('beats', '').isdigit() and meter.findtext('beat-type', '').isdigit():
+                        out['time'] = [int(meter.findtext('beats')), int(meter.findtext('beat-type'))]  # for the metronome
                 if element.tag == 'direction':
                     offset = int(float(element.findtext('offset', '0'))) * (tpq // divisions)
                     for mark in direction_marks(element):
@@ -390,6 +393,8 @@ def simplify(song_id, title):
             item['marks'] = marks
         if tempos:
             item['tempos'] = tempos
+        if measure.get('time'):
+            item['time'] = measure['time']
         out_measures.append(item)
 
     song = {

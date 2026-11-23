@@ -3,6 +3,8 @@ import type { Song } from './types';
 /** A position in the score: measure index and tick offset inside it. */
 export type Position = { measure: number; tick: number };
 export type NoteEvent = { time: number; on: boolean; id: string; midi: number };
+/** A metronome click: the first beat of a full measure is strong; 'sub' clicks fall between beats. */
+export type Click = { time: number; kind: 'strong' | 'weak' | 'sub'; position: Position };
 
 const DEFAULT_QPM = 100;
 
@@ -67,6 +69,36 @@ export class Timeline {
   }
 
   get measureCount() { return this.song.measures.length; }
+
+  /**
+   * Metronome clicks from the time signatures: one per beat (compound meters such as
+   * 6/8 beat in dotted quarters), plus `between` evenly spaced clicks inside each beat.
+   * A pickup measure's beats line up with its end and carry no strong beat.
+   */
+  clicks(between = 0): Click[] {
+    const clicks: Click[] = [];
+    const tpq = this.song.ticksPerQuarter;
+    let meter: [number, number] = [4, 4];
+    this.song.measures.forEach((measure, m) => {
+      if (measure.time) meter = measure.time;
+      const [beats, type] = meter;
+      const compound = type === 8 && beats > 3 && beats % 3 === 0;
+      const beat = (tpq * 4 / type) * (compound ? 3 : 1);
+      const full = beats * tpq * 4 / type;
+      const pickup = measure.duration < full;
+      const offset = pickup ? measure.duration % beat : 0;
+      for (let tick = offset; tick < measure.duration; tick += beat) {
+        const at = (t: number, kind: Click['kind']) =>
+          clicks.push({ time: this.timeOf(this.starts[m] + t), kind, position: { measure: m, tick: t } });
+        at(tick, tick === 0 && !pickup ? 'strong' : 'weak');
+        for (let j = 1; j <= between; j++) {
+          const sub = tick + (beat * j) / (between + 1);
+          if (sub < measure.duration) at(sub, 'sub');
+        }
+      }
+    });
+    return clicks;
+  }
 
   private segmentAtTick(tick: number) {
     let index = 0;

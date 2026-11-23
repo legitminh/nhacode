@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Document, min_box, must_view } from '@legitminh/keyflow';
+  import { ButtonPositional, Document, InputFrame, StaticButton, create_input_frame, input_frame_manager, min_box, must_view } from '@legitminh/keyflow';
   import { layoutMarks, layoutSystems, type MeasureLayout, type StreamLayout } from './layout';
   import type { Song } from './types';
   import { octaveLineColor } from '../colors';
@@ -9,10 +9,17 @@
 
   import type { Position } from './timeline';
 
-  let { songId, lineWidths, separateHands = false, inverted = false, playhead, onseek, onsong }: {
+  let { songId, lineWidths, separateHands = false, inverted = false, playhead, metronomeHead, picking = false, onpick, oncancelpick,
+    onseek, onsong }: {
     songId: string; lineWidths: LineWidths; separateHands?: boolean; inverted?: boolean;
     /** Where playback is; its time frame is highlighted. */
     playhead?: Position;
+    /** Where the metronome is; outlined. */
+    metronomeHead?: Position;
+    /** "Start playback from": a triangle button at each measure start picks where playback starts. */
+    picking?: boolean;
+    onpick?: (measure: number) => void;
+    oncancelpick?: () => void;
     /** Clicking a measure moves the playhead there. */
     onseek?: (measure: number) => void;
     onsong?: (song: Song | undefined) => void;
@@ -34,6 +41,15 @@
   const HAND_NAMES: Record<string, string> = { right: 'Right hand', left: 'Left hand' };
   /** Inverted order mirrors each stream vertically: octave 0 and its border go to the bottom. */
   const flip = (y: number, height: number) => (inverted ? height - y : y);
+
+  // Picking runs in its own Keyflow input frame: only the visible measure triangles
+  // (ButtonPositional) and Escape respond, and the sheet still scrolls.
+  const pickFrame = create_input_frame({ name: 'start-playback-from' });
+  $effect(() => {
+    if (!picking) return;
+    input_frame_manager.push(pickFrame);
+    return () => pickFrame.deactivate();
+  });
 
   $effect(() => {
     const id = songId;
@@ -81,6 +97,13 @@
     {#if error}
       <p role="alert">{error}</p>
     {:else if song}
+      <InputFrame frame={pickFrame}>
+      {#if picking}
+        <div class="pick-banner" role="status">
+          <span>Pick where playback starts</span>
+          <StaticButton keys="escape" on_close={() => oncancelpick?.()}>Cancel</StaticButton>
+        </div>
+      {/if}
       <div class="sheet-streams" data-song={song.id} aria-label={`${song.title}, ${song.composer}`}>
         {#each systems as system, index}
           {@const top = system.hands[0].stream}
@@ -109,6 +132,16 @@
             </svg>
           {/if}
           <div class="sheet-hands">
+          {#if picking}
+            <div class="pick-layer">
+              {#each offsets(top) as x, m}
+                <div class="pick-start" style:left={`${x}px`} data-index={top.measures[m].index}>
+                  <ButtonPositional on_close={() => onpick?.(top.measures[m].index)}
+                    ><span class="visually-hidden">Start from measure {top.measures[m].number}</span><span aria-hidden="true">▶</span></ButtonPositional>
+                </div>
+              {/each}
+            </div>
+          {/if}
           {#each inverted ? [...system.hands].reverse() : system.hands as { hand, stream }}
           {@const xs = offsets(stream)}
           {@const height = streamHeight(stream)}
@@ -125,6 +158,10 @@
                 {#if playhead && playhead.measure === measure.index}
                   <rect class="playhead" x={Math.min(measure.frames - 1, Math.floor(playhead.tick / measure.resolution)) * CELL} y="0"
                     width={CELL} {height} />
+                {/if}
+                {#if metronomeHead && metronomeHead.measure === measure.index}
+                  <rect class="metronome-head" x={Math.min(measure.frames - 1, Math.floor(metronomeHead.tick / measure.resolution)) * CELL + 1} y="1"
+                    width={CELL - 2} height={height - 2} />
                 {/if}
                 {#if m > 0}<line class="barline" x1="0" x2="0" y1="0" y2={height} />{/if}
                 {#each stream.lanes as _, octave}
@@ -154,6 +191,7 @@
           </div>
         {/each}
       </div>
+      </InputFrame>
     {/if}
     </Document>
   </div>
@@ -209,6 +247,13 @@
   .sheet-measure.seekable { cursor: pointer; }
   .sheet-measure.seekable:hover .measure-hit { fill: var(--tertiary); fill-opacity: .08; }
   .playhead { fill: var(--primary); fill-opacity: .15; }
+  .metronome-head { fill: none; stroke: var(--primary); stroke-width: 2; stroke-dasharray: 4 3; }
+  .sheet-hands { position: relative; }
+  .pick-layer { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+  .pick-start { position: absolute; top: 0; pointer-events: auto; font-size: calc(var(--min-box) * .5); line-height: 1; }
+  .pick-start :global(button) { background: var(--background); border: 1px solid var(--primary); border-radius: .25rem; }
+  .pick-banner { display: flex; align-items: center; gap: .5rem; padding: 0 0 .25rem; color: var(--primary); }
+  .pick-banner :global(button) { border: 1px solid var(--primary); border-radius: .25rem; padding: 0 calc(var(--min-box) / 4); }
   .sheet-note {
     fill: currentColor;
     font-size: calc(var(--min-box) * .8);

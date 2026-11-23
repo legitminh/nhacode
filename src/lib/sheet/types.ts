@@ -23,6 +23,8 @@ export type SongMeasure = {
   marks?: SongMark[];
   /** Playback tempo changes in quarter notes per minute. */
   tempos?: { start: number; qpm: number }[];
+  /** Time signature [beats, beat type] where it is set; later measures keep it. */
+  time?: [number, number];
 };
 
 /** The simplified, staff-free form of a score: which key is pressed when. */
