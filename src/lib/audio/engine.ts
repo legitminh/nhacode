@@ -73,9 +73,9 @@ export class AudioEngine {
     await Promise.all([prepared, resumed]);
   }
 
-  noteOn(id: string, midi: number) {
+  noteOn(id: string, midi: number, velocity?: number) {
     this.voices.get(id)?.release(true);
-    this.voices.set(id, this.instrument!.noteOn(midi));
+    this.voices.set(id, this.instrument!.noteOn(midi, velocity));
   }
 
   noteOff(id: string) {

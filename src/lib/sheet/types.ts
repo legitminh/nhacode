@@ -8,7 +8,11 @@ export type SongNote = {
   tied?: boolean;
   /** Which hand plays it; omitted means the right hand. */
   hand?: 'left';
+  /** Articulations from the score. */
+  art?: Articulation[];
 };
+
+export type Articulation = 'staccato' | 'accent' | 'fermata' | 'arpeggio';
 
 /** A score marking: time signature, tempo, dynamic, hairpin (crescendo/diminuendo/stop) or a short direction. */
 export type SongMark = { start: number; kind: 'time' | 'tempo' | 'dynamic' | 'wedge' | 'words'; text: string };

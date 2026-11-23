@@ -7,7 +7,7 @@
   import BoxInput from './BoxInput.svelte';
 
   let { open = $bindable(false), transposed, instrumentId, range, margins, lineWidths,
-    ontranspose, oninstrument, onrange, onmargin, online, keyBorder, onkeyborder, separateHands, onseparatehands, inverted, oninverted,
+    ontranspose, oninstrument, onrange, onmargin, online, keyBorder, onkeyborder, separateHands, onseparatehands, inverted, oninverted, articulations, onarticulations,
     playback, onplayback, playbackInstrumentId, onplaybackinstrument }: {
     open?: boolean;
     transposed: boolean;
@@ -26,6 +26,8 @@
     onseparatehands: (value: boolean) => void;
     inverted: boolean;
     oninverted: (value: boolean) => void;
+    articulations: boolean;
+    onarticulations: (value: boolean) => void;
     playback: boolean;
     onplayback: (value: boolean) => void;
     playbackInstrumentId: string;
@@ -134,6 +136,7 @@
         {#snippet children(sh)}
           <Button on_close={() => onseparatehands(!separateHands)}>Hands: {separateHands ? 'Separate' : 'Together'}</Button>
           <Button on_close={() => oninverted(!inverted)}>Order: {inverted ? 'Inverted' : 'Normal'}</Button>
+          <Button on_close={() => onarticulations(!articulations)}>Articulations: {articulations ? 'On' : 'Off'}</Button>
           <Button on_close={() => onplayback(!playback)}>Playback: {playback ? 'On' : 'Off'}</Button>
           <SubKeyframe label={`Playback instrument: ${playbackInstrument.name}`} items={playbackChoices} class="instrument-select" />
           <Button on_close={() => lockstep_scrolling.set(!lockstep_scrolling.enabled)}

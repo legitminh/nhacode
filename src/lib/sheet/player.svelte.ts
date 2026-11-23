@@ -79,7 +79,7 @@ export class Player {
     const events = timeline.events;
     while (this.next < events.length && events[this.next].time <= now) {
       const event = events[this.next++];
-      if (event.on) this.engine.noteOn(event.id, event.midi);
+      if (event.on) this.engine.noteOn(event.id, event.midi, event.velocity);
       else this.engine.noteOff(event.id);
     }
     if (now >= timeline.duration) {

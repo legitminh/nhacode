@@ -269,6 +269,26 @@ def direction_marks(direction):
     return marks
 
 
+ARTICULATIONS = {'staccato': 'staccato', 'staccatissimo': 'staccato', 'spiccato': 'staccato',
+                 'accent': 'accent', 'strong-accent': 'accent'}
+
+
+def articulations(note):
+    """Staccato, accent, fermata and arpeggio markings on a note, in that order."""
+    found = []
+    for notations in note.findall('notations'):
+        for group in notations.findall('articulations'):
+            for item in group:
+                if item.tag in ARTICULATIONS and ARTICULATIONS[item.tag] not in found:
+                    found.append(ARTICULATIONS[item.tag])
+        if notations.find('fermata') is not None and 'fermata' not in found:
+            found.append('fermata')
+        if notations.find('arpeggiate') is not None and 'arpeggio' not in found:
+            found.append('arpeggio')
+    order = ['staccato', 'accent', 'fermata', 'arpeggio']
+    return sorted(found, key=order.index)
+
+
 def parse_score(xml):
     """Return (divisions_lcm, measures) with every part merged by measure index."""
     root = strip_namespaces(ET.fromstring(xml))
@@ -336,7 +356,8 @@ def parse_score(xml):
                     staff = element.findtext('staff', '1')
                     # A piano grand staff's lower staff is the left hand; other staves go by their clef.
                     left = staff == '2' if staves == 2 else clefs.get(staff) == 'F'
-                    note = {'measure': index, 'start': start, 'duration': duration, 'midi': midi, 'hand': 'left' if left else 'right'}
+                    note = {'measure': index, 'start': start, 'duration': duration, 'midi': midi, 'hand': 'left' if left else 'right',
+                            'art': articulations(element)}
                     if previous is not None:
                         note['tied'] = True
                     out['notes'].append(note)
@@ -368,6 +389,8 @@ def simplify(song_id, title):
                 item['tied'] = True
             if note['hand'] == 'left':
                 item['hand'] = 'left'
+            if note.get('art'):
+                item['art'] = note['art']
             notes.append(item)
         item = {'number': measure['number'], 'duration': measure['duration'], 'resolution': resolution, 'notes': notes}
         marks = []

@@ -41,6 +41,7 @@
   let keyBorder = $state(loadKeyBorder());
   let separateHands = $state(readPref('sheet:separate-hands', false, isBoolean));
   let inverted = $state(readPref('sheet:inverted', false, isBoolean));
+  let articulations = $state(readPref('sheet:articulations', true, isBoolean));
   let playback = $state(readPref('sheet:playback', true, isBoolean));
   const savedPlaybackInstrument = instruments.find((item) => item.id === readPref('sheet:playback-instrument', '', isString)) ?? instruments[0];
   let playbackInstrumentId = $state(savedPlaybackInstrument.id);
@@ -193,6 +194,11 @@
     player.setInstrument(instruments.find((item) => item.id === id)!);
   }
 
+  function setArticulations(value: boolean) {
+    articulations = value;
+    writePref('sheet:articulations', value);
+  }
+
   function setInverted(value: boolean) {
     inverted = value;
     writePref('sheet:inverted', value);
@@ -233,7 +239,7 @@
         ontranspose={setTransposed} oninstrument={selectInstrument} onrange={selectRange}
         {margins} onmargin={setMargin} {lineWidths} online={setLineWidth}
         {keyBorder} onkeyborder={setKeyBorder} {separateHands} onseparatehands={setSeparateHands}
-        {inverted} oninverted={setInverted}
+        {inverted} oninverted={setInverted} {articulations} onarticulations={setArticulations}
         {playback} onplayback={setPlayback} {playbackInstrumentId} onplaybackinstrument={setPlaybackInstrument} />
       <ViewToggle label="Sheet" shortcut="s" on={showSheet} disabled={settingsOpen} ontoggle={() => toggleView('sheet')}>sheet</ViewToggle>
       <ViewToggle label="Keyboard" shortcut="k" on={showKeyboard} disabled={settingsOpen} ontoggle={() => toggleView('keyboard')}>
@@ -270,7 +276,7 @@
         </section>
       {/if}
       {#if showSheet}
-        <div class="sheet-view"><Sheet {songId} {lineWidths} {separateHands} {inverted}
+        <div class="sheet-view"><Sheet {songId} {lineWidths} {separateHands} {inverted} {articulations}
           playhead={playback ? player.position : undefined} onseek={playback ? (measure) => player.seek(measure) : undefined}
           metronomeHead={metronome.position} {picking} onpick={pickStart} oncancelpick={() => { picking = false; }}
           onsong={(song) => player.load(song)} /></div>

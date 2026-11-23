@@ -83,6 +83,11 @@ The toolbar reads, left to right: **playback** (O), ▶/⏸ (P), the song title 
   downbeat), and optional in-between clicks. Its dashed cursor moves across the
   sheet. **metronome** sets Strong beat, Beat and In-between strength (0–8, 0 is
   silent) and In-between beats per beat (0–7) with Keyflow `NumberBox` fields.
+- Playback follows the notated dynamics (pp … ff set the loudness, sf/sfz accent a
+  single note, and hairpins ramp to the next dynamic or one step), accents play
+  louder, staccato notes sound half as long, and arpeggiated chords roll low to high.
+- **Sheet pane → Articulations** (on by default) shows staccato dots, accents and
+  fermatas directly above a note's digit, and a wavy arpeggio line left of a chord.
 - Playback, instrument and metronome settings are saved in the browser. Its search
 box is Keyflow's `TextBox`: the screen opens with its tag and song shortcuts live,
 **/** starts typing (results filter as you type), Escape stops typing, and Enter

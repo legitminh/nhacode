@@ -415,3 +415,27 @@ test('playback menu picks a start measure, and the metronome runs with saved set
   await page.reload();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('nhacode:sheet:metronome')!).strong)).toBe(3);
 });
+
+test('articulations show above notes (arpeggios left of chords) and can be turned off', async ({ page }) => {
+  await page.evaluate(() => localStorage.setItem('nhacode:song', '"symphony-5"'));
+  await page.reload();
+  await page.getByRole('button', { name: /^Sheet/ }).click();
+  const accent = page.locator('.articulations[data-art~="accent"]').first();
+  await expect(accent).toBeAttached();
+  // The accent sits directly above its digit.
+  const placed = await accent.evaluate((group) => {
+    const digit = group.previousElementSibling!.getBoundingClientRect();
+    const mark = group.getBoundingClientRect();
+    return { above: mark.top < digit.top + digit.height / 3, centered: Math.abs((mark.left + mark.right) / 2 - (digit.left + digit.right) / 2) < digit.width };
+  });
+  expect(placed).toEqual({ above: true, centered: true });
+  await paneMenu(page, 'Sheet');
+  await page.getByRole('button', { name: /Articulations: On/ }).click();
+  await closeSettings(page);
+  await expect(page.locator('.articulations')).toHaveCount(0);
+  await page.evaluate(() => { localStorage.setItem('nhacode:song', '"clair-de-lune"'); localStorage.setItem('nhacode:sheet:articulations', 'true'); });
+  await page.reload();
+  const arpeggio = page.locator('.art-arpeggio').first();
+  await expect(arpeggio).toBeAttached();
+  expect(await arpeggio.evaluate((path) => path.getBoundingClientRect().right <= path.closest('g')!.previousElementSibling!.getBoundingClientRect().left + 1)).toBe(true);
+});

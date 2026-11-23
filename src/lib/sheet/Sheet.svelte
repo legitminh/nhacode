@@ -9,9 +9,11 @@
 
   import type { Position } from './timeline';
 
-  let { songId, lineWidths, separateHands = false, inverted = false, playhead, metronomeHead, picking = false, onpick, oncancelpick,
+  let { songId, lineWidths, separateHands = false, inverted = false, articulations = true, playhead, metronomeHead, picking = false, onpick, oncancelpick,
     onseek, onsong }: {
     songId: string; lineWidths: LineWidths; separateHands?: boolean; inverted?: boolean;
+    /** Show staccato, accent and fermata above notes and arpeggios left of chords. */
+    articulations?: boolean;
     /** Where playback is; its time frame is highlighted. */
     playhead?: Position;
     /** Where the metronome is; outlined. */
@@ -176,7 +178,32 @@
                 {#each measure.notes as note}
                   {@const y = flip(blockTop(stream, note.octave) + note.lane * ROW + ROW / 2, height)}
                   {#if !note.tied}
-                    <text class="sheet-note" data-midi={note.midi} style:fill={octaveLineColor(note.octave)} x={note.frame * CELL + CELL / 2} {y}>{note.digit}</text>
+                    {@const x = note.frame * CELL + CELL / 2}
+                    <text class="sheet-note" data-midi={note.midi} style:fill={octaveLineColor(note.octave)} {x} {y}>{note.digit}</text>
+                    {#if articulations && note.art.length}
+                      {@const above = note.art.filter((a) => a !== 'arpeggio')}
+                      {@const size = CELL * .45}
+                      {@const top = y - ROW * .43}
+                      <g class="articulations" data-art={note.art.join(' ')} style:stroke={octaveLineColor(note.octave)} style:fill={octaveLineColor(note.octave)}>
+                        {#each above as art, i}
+                          {@const ax = x + (i - (above.length - 1) / 2) * size * 1.15}
+                          {#if art === 'staccato'}
+                            <circle class="art-staccato" cx={ax} cy={top} r={size * .17} />
+                          {:else if art === 'accent'}
+                            <polyline class="art-accent" fill="none" points={`${ax - size / 2},${top - size / 3} ${ax + size / 2},${top} ${ax - size / 2},${top + size / 3}`} />
+                          {:else if art === 'fermata'}
+                            <path class="art-fermata" fill="none" d={`M ${ax - size / 2} ${top + size / 4} A ${size / 2} ${size / 2} 0 0 1 ${ax + size / 2} ${top + size / 4}`} />
+                            <circle cx={ax} cy={top + size / 6} r={size * .1} />
+                          {/if}
+                        {/each}
+                        {#if note.art.includes('arpeggio')}
+                          {@const ax = x - CELL * .5}
+                          {@const h = ROW / 2 - 1}
+                          <path class="art-arpeggio" fill="none"
+                            d={`M ${ax} ${y - h} q ${CELL * .12} ${h / 4} 0 ${h / 2} q ${-CELL * .12} ${h / 4} 0 ${h / 2} q ${CELL * .12} ${h / 4} 0 ${h / 2} q ${-CELL * .12} ${h / 4} 0 ${h / 2}`} />
+                        {/if}
+                      </g>
+                    {/if}
                   {/if}
                   {#each { length: note.frames - (note.tied ? 0 : 1) } as _, i}
                     {@const frame = note.frame + (note.tied ? 0 : 1) + i}
@@ -247,6 +274,8 @@
   .sheet-measure.seekable { cursor: pointer; }
   .sheet-measure.seekable:hover .measure-hit { fill: var(--tertiary); fill-opacity: .08; }
   .playhead { fill: var(--primary); fill-opacity: .15; }
+  .articulations { stroke-width: 1.5; }
+  .articulations polyline, .articulations path { stroke-linecap: round; stroke-linejoin: round; }
   .metronome-head { fill: none; stroke: var(--primary); stroke-width: 2; stroke-dasharray: 4 3; }
   .sheet-hands { position: relative; }
   .pick-layer { position: absolute; inset: 0; pointer-events: none; z-index: 1; }

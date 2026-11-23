@@ -1,4 +1,4 @@
-import type { SongMark, SongMeasure } from './types';
+import type { Articulation, SongMark, SongMeasure } from './types';
 
 /** A0 is the lowest key; octaves start at A, matching the piano grid. */
 const A0 = 21;
@@ -16,6 +16,7 @@ export type SheetNote = {
   /** A continuation from the previous measure: draw only the hold line. */
   tied: boolean;
   midi: number;
+  art: Articulation[];
 };
 
 export type MeasureLayout = {
@@ -77,7 +78,7 @@ export function layoutMeasure(measure: SongMeasure, index = 0): MeasureLayout {
         lane = Math.max(lane, other.lane + 1);
       }
     }
-    placed.push({ octave, digit: digitOf(note.midi), lane, frame, frames: end - frame, tied: !!note.tied, midi: note.midi });
+    placed.push({ octave, digit: digitOf(note.midi), lane, frame, frames: end - frame, tied: !!note.tied, midi: note.midi, art: note.art ?? [] });
     for (let f = frame; f < end; f++) reach[f] = Math.max(reach[f], octave);
   }
 

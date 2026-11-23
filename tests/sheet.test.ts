@@ -133,3 +133,32 @@ test('metronome clicks follow the meter: strong downbeats, weak beats, pickups a
   // At 60 qpm with two ticks per quarter, the first full measure starts after the 2-tick pickup: 1 s.
   assert.equal(timeline.clicks()[1].time, 1000);
 });
+
+test('playback velocity follows dynamics and hairpins; staccato, accents and arpeggios shape notes', async () => {
+  const { Timeline, DYNAMIC_LEVELS } = await import('../src/lib/sheet/timeline.ts');
+  const note = (start: number, midi: number, art?: ('staccato' | 'accent' | 'fermata' | 'arpeggio')[]) =>
+    ({ start, duration: 1, midi, ...(art ? { art } : {}) });
+  const song = {
+    id: 's', title: 'S', composer: '', ticksPerQuarter: 1, source: { dataset: 'x', path: 'x' },
+    measures: [
+      { number: '1', duration: 4, resolution: 1, tempos: [{ start: 0, qpm: 60 }],
+        marks: [{ start: 0, kind: 'dynamic' as const, text: 'p' }, { start: 2, kind: 'wedge' as const, text: 'crescendo' }],
+        notes: [note(0, 60), note(1, 62, ['staccato']), note(2, 64), note(3, 65, ['accent'])] },
+      { number: '2', duration: 4, resolution: 1,
+        marks: [{ start: 0, kind: 'wedge' as const, text: 'stop' }, { start: 0, kind: 'dynamic' as const, text: 'f' }],
+        notes: [note(0, 60, ['arpeggio']), note(0, 64, ['arpeggio']), note(0, 67, ['arpeggio'])] },
+    ],
+  };
+  const timeline = new Timeline(song);
+  const on = (id: string) => timeline.events.find((event) => event.on && event.id === id)!;
+  const off = (id: string) => timeline.events.find((event) => !event.on && event.id === id)!;
+  assert.equal(on('0:0').velocity, DYNAMIC_LEVELS.p);
+  // The crescendo from tick 2 ramps from p to the f that follows it.
+  assert.ok(on('0:2').velocity === DYNAMIC_LEVELS.p);
+  assert.ok(on('0:3').velocity > DYNAMIC_LEVELS.p + .15 - 1e-9); // halfway up the ramp, plus the accent
+  assert.equal(on('1:0').velocity, DYNAMIC_LEVELS.f);
+  // Staccato sounds half as long.
+  assert.equal(off('0:1').time - on('0:1').time, 500);
+  // The rolled chord enters low to high.
+  assert.ok(on('1:0').time < on('1:1').time && on('1:1').time < on('1:2').time);
+});
