@@ -110,17 +110,23 @@ main.transposed { --rows: 8; --columns: 12; }
   font: var(--text-size) / var(--min-box) var(--font-mono);
 }
 .song-screen { display: flex; flex-direction: column; gap: .5rem; max-width: calc(var(--min-box) * 24); }
-.song-search input {
+.song-search .text-entry, .song-search textarea {
   box-sizing: border-box;
+  display: flex;
+  align-items: center;
   width: 100%;
-  height: var(--min-box);
+  min-height: var(--min-box);
   padding: 0 calc(var(--min-box) / 4);
   border: 1px solid var(--primary);
   border-radius: .25rem;
   color: var(--primary);
   background: var(--background);
   font: inherit;
+  text-align: left;
+  resize: none;
 }
+.song-search .text-entry .preview { color: var(--tertiary); }
+.song-search .editor-status { margin: 0; color: var(--tertiary); font-size: var(--text-size); line-height: var(--min-box); }
 .song-tags { display: flex; flex-wrap: wrap; gap: .5rem; }
 .song-tag button { border: 1px solid var(--primary); border-radius: .25rem; padding: 0 calc(var(--min-box) / 4); }
 .song-tag.on .button .content, .song-tag.on .button .content.content { color: var(--background); background: var(--primary); }

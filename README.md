@@ -63,8 +63,9 @@ The top bar has two Keyflow toggles: **sheet** (shortcut S) and the keyboard ico
 (shortcut K). Either screen can be on or off; when both are on they sit side by
 side. The choice is remembered per browser. While the sheet is on, the **Song**
 button (M) sits on the same toolbar line and opens the song screen. Its search
-box is Keyflow's `TextBox`: it opens ready for typing, Enter picks the first match,
-Escape stops typing so the screen's shortcuts work, and **/** starts typing again.
+box is Keyflow's `TextBox`: the screen opens with its tag and song shortcuts live,
+**/** starts typing (results filter as you type), Escape stops typing, and Enter
+picks the first match.
 Search covers titles and composers; toggle the **classical**, **western**, **eastern**, **electronic** and
 **orchestral** tags to filter. Selected tags must all match; classical covers
 both western and eastern classical music. Each result has a Keyflow shortcut.

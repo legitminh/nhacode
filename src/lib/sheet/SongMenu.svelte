@@ -31,16 +31,16 @@
     query = query.replace(/\n/g, '');
     const first = results[0];
     if (first) void search?.exit().then(() => { onselect(first.id); screen?.exit(); });
+    else void search?.exit();
   });
 </script>
 
 <!-- The song selection screen: search by name and filter by tags. Keyflow owns its frame and shortcuts. -->
-<SubKeyframe bind:this={screen} label={`Song: ${selected?.title ?? 'None'}`} enterTrigger="m" {disabled} class="song-select"
-  onopen={() => { requestAnimationFrame(() => void search?.enter()); }}>
+<SubKeyframe bind:this={screen} label={`Song: ${selected?.title ?? 'None'}`} enterTrigger="m" {disabled} class="song-select">
   {#snippet children(menu)}
     <div class="song-screen">
-      <!-- Keyflow's TextBox: / starts typing, Escape stops, and the screen's shortcuts work again. -->
-      <TextBox bind:this={search} bind:value={query} label="Search songs" placeholder="Search songs (/)" rows={1}
+      <!-- Keyflow's TextBox: the screen opens with its shortcuts live; / starts typing, Escape or Enter stops. -->
+      <TextBox bind:this={search} bind:value={query} label="Search songs" placeholder="Search songs" rows={1}
         wrap="off" enterTrigger="/" class="song-search" />
       <div class="song-tags" role="group" aria-label="Tags">
         {#each TAGS as tag}

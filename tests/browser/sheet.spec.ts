@@ -192,14 +192,20 @@ test('key text and borders take their octave color and a min-box border width fr
 test('the song screen searches by name and filters by tags, with Keyflow shortcuts', async ({ page }) => {
   await page.getByRole('button', { name: /^Sheet/ }).click();
   await page.keyboard.press('m');
-  // The search box is Keyflow's TextBox: it starts in typing mode, Escape leaves it and / re-enters it.
+  // The search box is Keyflow's TextBox: the screen opens with its shortcuts live, / starts typing, Escape stops.
   const search = page.getByRole('textbox', { name: 'Search songs' });
+  await expect(search).toBeHidden();
+  await expect(page.locator('.song-screen .text-entry')).toContainText('/');
+  await page.keyboard.press('/');
   await expect(search).toBeFocused();
+  await page.keyboard.type('elise');
   await page.keyboard.press('Escape');
   await expect(search).toBeHidden();
   await expect(page.locator('.song-screen')).toBeVisible();
+  await expect(page.locator('.song-results li')).toHaveCount(1);
   await page.keyboard.press('/');
   await expect(search).toBeFocused();
+  await search.fill('');
   const results = page.getByRole('list', { name: 'Songs' }).getByRole('listitem');
   const total = await results.count();
   expect(total).toBeGreaterThan(5);
