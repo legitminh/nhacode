@@ -197,10 +197,11 @@
                           {/if}
                         {/each}
                         {#if note.art.includes('arpeggio')}
-                          {@const ax = x - CELL * .5}
+                          <!-- Just left of the digit (a glyph is about one frame wide), so it never touches it. -->
+                          {@const ax = x - CELL * .64}
                           {@const h = ROW / 2 - 1}
                           <path class="art-arpeggio" fill="none"
-                            d={`M ${ax} ${y - h} q ${CELL * .12} ${h / 4} 0 ${h / 2} q ${-CELL * .12} ${h / 4} 0 ${h / 2} q ${CELL * .12} ${h / 4} 0 ${h / 2} q ${-CELL * .12} ${h / 4} 0 ${h / 2}`} />
+                            d={`M ${ax} ${y - h} q ${CELL * .1} ${h / 4} 0 ${h / 2} q ${-CELL * .1} ${h / 4} 0 ${h / 2} q ${CELL * .1} ${h / 4} 0 ${h / 2} q ${-CELL * .1} ${h / 4} 0 ${h / 2}`} />
                         {/if}
                       </g>
                     {/if}
