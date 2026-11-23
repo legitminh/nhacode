@@ -61,8 +61,15 @@ Requires Node 22.18+ (Node 24 recommended). Open the local URL printed by Vite.
 
 The top bar has two Keyflow toggles: **sheet** (shortcut S) and the keyboard icon
 (shortcut K). Either screen can be on or off; when both are on they sit side by
-side. The choice is remembered per browser. While the sheet is on, the **Song**
-button (M) sits on the same toolbar line and opens the song screen. Its search
+side. The choice is remembered per browser. While the sheet is on, the toolbar
+also shows a **▶/⏸** play button (P) and the song title, a 16-character Keyflow
+`BoundedText` that scrolls when longer; the title (M) opens the song screen.
+
+Playback works like MuseScore's: ▶ plays the song from the playhead with the
+app's instrument pack, following the score's tempo changes, and ⏸ pauses. The
+current time frame is highlighted, and clicking any measure moves the playhead
+there (playback continues from it). **Sheet pane → Playback** hides the tool and
+**Playback instrument** picks grand piano, violin, cello or flute. Its search
 box is Keyflow's `TextBox`: the screen opens with its tag and song shortcuts live,
 **/** starts typing (results filter as you type), Escape stops typing, and Enter
 picks the first match.

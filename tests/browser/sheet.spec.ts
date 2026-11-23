@@ -38,7 +38,7 @@ test('sheet and keyboard toggles show the screens side by side', async ({ page }
 test('Für Elise renders as wrapped streams of hex digits with octave lines', async ({ page }) => {
   await page.getByRole('button', { name: /^Sheet/ }).click();
   await page.getByRole('button', { name: /^Keyboard/ }).click();
-  await expect(page.getByRole('button', { name: /Song: Für Elise/ })).toBeVisible();
+  await expect(page.locator('.song-select > button', { hasText: 'Für Elise' })).toBeVisible();
   await expect(page.locator('[data-song="fur-elise"]')).toBeVisible();
   const streams = page.locator('.sheet-stream');
   expect(await streams.count()).toBeGreaterThan(3);
@@ -93,7 +93,7 @@ test('min-box increases and decreases like Keyflow and drives every font size', 
 
 test('song menu sits on the toolbar and keyboard margins are min-box number fields', async ({ page }) => {
   await page.getByRole('button', { name: /^Sheet/ }).click();
-  const song = (await page.getByRole('button', { name: /Song: Für Elise/ }).boundingBox())!;
+  const song = (await page.locator('.song-select > button', { hasText: 'Für Elise' }).boundingBox())!;
   const settings = (await page.getByRole('button', { name: /Settings/ }).boundingBox())!;
   expect(Math.abs(song.y + song.height / 2 - (settings.y + settings.height / 2))).toBeLessThan(4);
 
@@ -233,7 +233,7 @@ test('the song screen searches by name and filters by tags, with Keyflow shortcu
   await search.press('Enter'); // picks the first match and closes the screen
   await expect(page.locator('.song-screen')).toHaveCount(0);
   await expect(page.locator('[data-song="sakura"]')).toBeVisible();
-  await expect(page.getByRole('button', { name: /Song: Sakura/ })).toBeVisible();
+  await expect(page.locator('.song-select > button', { hasText: 'Sakura' })).toBeVisible();
 });
 
 test('Settings can show the left and right hands as separate streams', async ({ page }) => {
@@ -317,4 +317,51 @@ test('markings stay inside the line', async ({ page }) => {
       expect(box.x + box.width).toBeLessThanOrEqual(line.x + line.width + 1);
     }
   }
+});
+
+test('sheet playback plays, pauses, seeks to a clicked measure, and is configurable', async ({ page }) => {
+  await page.addInitScript(() => {
+    const probe = { starts: 0 };
+    Object.assign(window, { __playProbe: probe });
+    const start = AudioBufferSourceNode.prototype.start;
+    AudioBufferSourceNode.prototype.start = function(...args) { probe.starts++; return Reflect.apply(start, this, args); };
+  });
+  await page.reload();
+  await page.getByRole('button', { name: /^Sheet/ }).click();
+  await page.getByRole('button', { name: /^Keyboard/ }).click();
+  // The play button sits before the song title, which is a 16-character Keyflow BoundedText.
+  const play = page.locator('.play-toggle');
+  const title = page.locator('.song-select .keyflow-bounded-text');
+  await expect(title).toHaveText('Für Elise');
+  expect((await play.boundingBox())!.x).toBeLessThan((await title.boundingBox())!.x);
+  await expect(play).toContainText('▶');
+
+  await page.keyboard.press('p');
+  await expect(play).toHaveAttribute('data-playing', 'true');
+  await expect(play).toContainText('⏸');
+  await expect.poll(() => page.evaluate(() => (window as any).__playProbe.starts), { timeout: 10000 }).toBeGreaterThan(2);
+  await expect(page.locator('.playhead')).toHaveCount(1);
+
+  // Clicking a measure moves the playhead there, and playback continues from it.
+  await page.locator('.sheet-measure[data-index="5"]').first().click();
+  await expect(page.locator('.playhead')).toHaveCount(1);
+  await expect.poll(() => page.locator('.playhead').evaluate((rect) => Number(rect.closest('[data-index]')!.getAttribute('data-index'))))
+    .toBeGreaterThanOrEqual(5);
+  await page.keyboard.press('p');
+  await expect(play).toHaveAttribute('data-playing', 'false');
+  const paused = await page.locator('.playhead').evaluate((rect) => rect.closest('[data-index]')!.getAttribute('data-index'));
+  await page.waitForTimeout(600);
+  expect(await page.locator('.playhead').evaluate((rect) => rect.closest('[data-index]')!.getAttribute('data-index'))).toBe(paused);
+
+  // Settings → Sheet pane: pick the playback instrument, or turn the tool off.
+  await paneMenu(page, 'Sheet');
+  await page.getByRole('button', { name: /Playback instrument: Grand piano/ }).click();
+  await page.getByRole('region', { name: /Playback instrument/ }).getByRole('button', { name: /Violin/ }).click();
+  await expect(page.getByRole('button', { name: /Playback instrument: Violin/ })).toBeVisible();
+  await page.getByRole('button', { name: /Playback: On/ }).click();
+  await closeSettings(page);
+  await expect(play).toHaveCount(0);
+  await expect(page.locator('.playhead')).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator('.play-toggle')).toHaveCount(0);
 });

@@ -7,8 +7,15 @@
   const files = import.meta.glob<Song>(['../../songs/*.json', '!../../songs/index.json'], { import: 'default' });
   import type { LineWidths } from './lines';
 
-  let { songId, lineWidths, separateHands = false, inverted = false }: {
+  import type { Position } from './timeline';
+
+  let { songId, lineWidths, separateHands = false, inverted = false, playhead, onseek, onsong }: {
     songId: string; lineWidths: LineWidths; separateHands?: boolean; inverted?: boolean;
+    /** Where playback is; its time frame is highlighted. */
+    playhead?: Position;
+    /** Clicking a measure moves the playhead there. */
+    onseek?: (measure: number) => void;
+    onsong?: (song: Song | undefined) => void;
   } = $props();
 
   // Sizes follow Keyflow's min-box: a row is one box tall, a time frame is half a box
@@ -34,7 +41,7 @@
     song = undefined;
     error = '';
     if (!load) return;
-    load().then((value) => { if (songId === id) song = value; })
+    load().then((value) => { if (songId === id) { song = value; onsong?.(value); } })
       .catch(() => { if (songId === id) error = 'Could not load this song.'; });
   });
 
@@ -111,7 +118,14 @@
             <line class="octave-zero" data-line="0" style:stroke={octaveLineColor(0)} x1="0" x2={stream.frames * CELL}
               y1={flip(ORIGIN / 2, height)} y2={flip(ORIGIN / 2, height)} stroke-width={ORIGIN} />
             {#each stream.measures as measure, m}
-              <g class="sheet-measure" data-measure={measure.number} transform={`translate(${xs[m]} 0)`}>
+              <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+              <g class="sheet-measure" class:seekable={!!onseek} data-measure={measure.number} data-index={measure.index}
+                transform={`translate(${xs[m]} 0)`} onclick={() => onseek?.(measure.index)}>
+                <rect class="measure-hit" x="0" y="0" width={measure.frames * CELL} {height} />
+                {#if playhead && playhead.measure === measure.index}
+                  <rect class="playhead" x={Math.min(measure.frames - 1, Math.floor(playhead.tick / measure.resolution)) * CELL} y="0"
+                    width={CELL} {height} />
+                {/if}
                 {#if m > 0}<line class="barline" x1="0" x2="0" y1="0" y2={height} />{/if}
                 {#each stream.lanes as _, octave}
                   {#if octave > 0}
@@ -191,6 +205,10 @@
   .octave-zero, .octave-line { stroke: currentColor; }
   .barline { stroke: var(--tertiary); stroke-width: 1; }
   .hold { stroke: currentColor; stroke-width: 1.5; }
+  .measure-hit { fill: transparent; }
+  .sheet-measure.seekable { cursor: pointer; }
+  .sheet-measure.seekable:hover .measure-hit { fill: var(--tertiary); fill-opacity: .08; }
+  .playhead { fill: var(--primary); fill-opacity: .15; }
   .sheet-note {
     fill: currentColor;
     font-size: calc(var(--min-box) * .8);

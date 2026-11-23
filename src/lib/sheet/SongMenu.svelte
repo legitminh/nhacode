@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Button, SubKeyframe, TextBox, type SubKeyframeContext } from '@legitminh/keyflow';
+  import { BoundedText, Button, SubKeyframe, TextBox, type SubKeyframeContext } from '@legitminh/keyflow';
   import { TAGS, findSongs, songs, type Tag } from './songs';
 
   let { songId, disabled = false, onselect }: {
@@ -36,7 +36,11 @@
 </script>
 
 <!-- The song selection screen: search by name and filter by tags. Keyflow owns its frame and shortcuts. -->
-<SubKeyframe bind:this={screen} label={`Song: ${selected?.title ?? 'None'}`} enterTrigger="m" {disabled} class="song-select">
+<SubKeyframe bind:this={screen} label={selected?.title ?? 'Choose a song'} enterTrigger="m" {disabled} class="song-select">
+  {#snippet triggerContent()}
+    <!-- Keyflow's BoundedText: at most 16 characters wide; longer titles scroll. -->
+    <BoundedText text={selected?.title ?? 'Choose a song'} limit={16} class="song-title" />
+  {/snippet}
   {#snippet children(menu)}
     <div class="song-screen">
       <!-- Keyflow's TextBox: the screen opens with its shortcuts live; / starts typing, Escape or Enter stops. -->

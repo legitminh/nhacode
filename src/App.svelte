@@ -6,6 +6,8 @@
   import ViewToggle from './lib/ViewToggle.svelte';
   import Sheet from './lib/sheet/Sheet.svelte';
   import SongMenu from './lib/sheet/SongMenu.svelte';
+  import PlayButton from './lib/sheet/PlayButton.svelte';
+  import { Player } from './lib/sheet/player.svelte';
   import { songs } from './lib/sheet/songs';
   import { NOTE_NAMES, noteAt, parseOctaveRange, type PianoNote } from './lib/notes';
   import { AudioEngine } from './lib/audio/engine';
@@ -36,6 +38,12 @@
   let keyBorder = $state(loadKeyBorder());
   let separateHands = $state(readPref('sheet:separate-hands', false, isBoolean));
   let inverted = $state(readPref('sheet:inverted', false, isBoolean));
+  let playback = $state(readPref('sheet:playback', true, isBoolean));
+  const savedPlaybackInstrument = instruments.find((item) => item.id === readPref('sheet:playback-instrument', '', isString)) ?? instruments[0];
+  let playbackInstrumentId = $state(savedPlaybackInstrument.id);
+  const player = new Player(savedPlaybackInstrument);
+  // Playback only runs while the sheet and its playback tool are shown.
+  $effect(() => { if (!showSheet || !playback) player.pause(); });
   let songId = $state(readPref('song', (songs.find((song) => song.id === 'fur-elise') ?? songs[0])?.id ?? '', (value): value is string => songs.some((song) => song.id === value)));
   let generation = 0;
   const noteRows = $derived(NOTE_NAMES.map((_, row) => octaves.map((octave) => noteAt(octave, row))));
@@ -146,6 +154,17 @@
     writePref('transposed', value);
   }
 
+  function setPlayback(value: boolean) {
+    playback = value;
+    writePref('sheet:playback', value);
+  }
+
+  function setPlaybackInstrument(id: string) {
+    playbackInstrumentId = id;
+    writePref('sheet:playback-instrument', id);
+    player.setInstrument(instruments.find((item) => item.id === id)!);
+  }
+
   function setInverted(value: boolean) {
     inverted = value;
     writePref('sheet:inverted', value);
@@ -167,7 +186,7 @@
   }
 
   onMount(() => { void prepare(); });
-  onDestroy(() => engine.dispose());
+  onDestroy(() => { engine.dispose(); player.dispose(); });
 </script>
 
 <Keyflow options={{ storagePrefix: 'nhacode:', lockstep: false, themes: [
@@ -186,7 +205,8 @@
         ontranspose={setTransposed} oninstrument={selectInstrument} onrange={selectRange}
         {margins} onmargin={setMargin} {lineWidths} online={setLineWidth}
         {keyBorder} onkeyborder={setKeyBorder} {separateHands} onseparatehands={setSeparateHands}
-        {inverted} oninverted={setInverted} />
+        {inverted} oninverted={setInverted}
+        {playback} onplayback={setPlayback} {playbackInstrumentId} onplaybackinstrument={setPlaybackInstrument} />
       <ViewToggle label="Sheet" shortcut="s" on={showSheet} disabled={settingsOpen} ontoggle={() => toggleView('sheet')}>sheet</ViewToggle>
       <ViewToggle label="Keyboard" shortcut="k" on={showKeyboard} disabled={settingsOpen} ontoggle={() => toggleView('keyboard')}>
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
@@ -194,7 +214,10 @@
           <path d="M6 9.5h1M9.5 9.5h1M13 9.5h1M16.5 9.5h1M6 12.5h1M9.5 12.5h1M13 12.5h1M16.5 12.5h1M8 15.5h8" stroke-linecap="round" />
         </svg>
       </ViewToggle>
-      {#if showSheet}<SongMenu {songId} disabled={settingsOpen} onselect={selectSong} />{/if}
+      {#if showSheet}
+        {#if playback}<PlayButton playing={player.playing} disabled={settingsOpen} ontoggle={() => player.toggle()} />{/if}
+        <SongMenu {songId} disabled={settingsOpen} onselect={selectSong} />
+      {/if}
     </div>
     <div class="views">
       {#if showKeyboard}
@@ -213,7 +236,9 @@
         </section>
       {/if}
       {#if showSheet}
-        <div class="sheet-view"><Sheet {songId} {lineWidths} {separateHands} {inverted} /></div>
+        <div class="sheet-view"><Sheet {songId} {lineWidths} {separateHands} {inverted}
+          playhead={playback ? player.position : undefined} onseek={playback ? (measure) => player.seek(measure) : undefined}
+          onsong={(song) => player.load(song)} /></div>
       {/if}
     </div>
   </main>

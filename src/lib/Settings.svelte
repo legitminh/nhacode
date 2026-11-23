@@ -7,7 +7,8 @@
   import BoxInput from './BoxInput.svelte';
 
   let { open = $bindable(false), transposed, instrumentId, range, margins, lineWidths,
-    ontranspose, oninstrument, onrange, onmargin, online, keyBorder, onkeyborder, separateHands, onseparatehands, inverted, oninverted }: {
+    ontranspose, oninstrument, onrange, onmargin, online, keyBorder, onkeyborder, separateHands, onseparatehands, inverted, oninverted,
+    playback, onplayback, playbackInstrumentId, onplaybackinstrument }: {
     open?: boolean;
     transposed: boolean;
     instrumentId: string;
@@ -25,6 +26,10 @@
     onseparatehands: (value: boolean) => void;
     inverted: boolean;
     oninverted: (value: boolean) => void;
+    playback: boolean;
+    onplayback: (value: boolean) => void;
+    playbackInstrumentId: string;
+    onplaybackinstrument: (id: string) => void;
   } = $props();
   const sideName = (side: Side) => side[0].toUpperCase() + side.slice(1);
   const LINES = [['origin', 'Origin line'], ['octave', 'Octave lines']] as const;
@@ -38,6 +43,10 @@
     min_box.set(Math.min(160, Math.max(12, Math.round(next * 100) / 100)));
   }
   const instrument = $derived(instruments.find((item) => item.id === instrumentId)!);
+  const playbackInstrument = $derived(instruments.find((item) => item.id === playbackInstrumentId) ?? instruments[0]);
+  const playbackChoices = instruments.map((option) => ({
+    id: option.id, label: option.name, on_select: () => onplaybackinstrument(option.id),
+  }));
   const choices = instruments.map((option) => ({
     id: option.id, label: option.name, on_select: () => oninstrument(option.id),
   }));
@@ -125,6 +134,8 @@
         {#snippet children(sh)}
           <Button on_close={() => onseparatehands(!separateHands)}>Hands: {separateHands ? 'Separate' : 'Together'}</Button>
           <Button on_close={() => oninverted(!inverted)}>Order: {inverted ? 'Inverted' : 'Normal'}</Button>
+          <Button on_close={() => onplayback(!playback)}>Playback: {playback ? 'On' : 'Off'}</Button>
+          <SubKeyframe label={`Playback instrument: ${playbackInstrument.name}`} items={playbackChoices} class="instrument-select" />
           <Button on_close={() => lockstep_scrolling.set(!lockstep_scrolling.enabled)}
             >Lockstep scrolling: {lockstep_scrolling.enabled ? 'On' : 'Off'}</Button>
           {#each LINES as [line, name]}

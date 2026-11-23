@@ -94,3 +94,24 @@ test('markings group by frame, overlapping ones move to new rows, and hairpins c
   assert.deepEqual(second.hairpins, [{ kind: 'crescendo', from: 0, to: 2, continued: true, open: false, row: 0 }]);
   assert.equal(second.rows, 1);
 });
+
+test('the playback timeline follows tempo changes and merges tied notes', async () => {
+  const { Timeline } = await import('../src/lib/sheet/timeline.ts');
+  const song = {
+    id: 's', title: 'S', composer: '', ticksPerQuarter: 1, source: { dataset: 'x', path: 'x' },
+    measures: [
+      { number: '1', duration: 4, resolution: 1, tempos: [{ start: 0, qpm: 60 }],
+        notes: [{ start: 0, duration: 2, midi: 60 }, { start: 2, duration: 2, midi: 62 }] },
+      { number: '2', duration: 4, resolution: 1, tempos: [{ start: 0, qpm: 120 }],
+        notes: [{ start: 0, duration: 2, midi: 62, tied: true }] },
+    ],
+  };
+  const timeline = new Timeline(song);
+  // 4 quarters at 60 qpm (4 s) then 4 quarters at 120 qpm (2 s).
+  assert.equal(timeline.duration, 6000);
+  assert.equal(timeline.timeAt({ measure: 1, tick: 0 }), 4000);
+  assert.deepEqual(timeline.positionAt(5000), { measure: 1, tick: 2 });
+  // The tied D sounds once, from 2 s until 5 s.
+  const d = timeline.events.filter((event) => event.midi === 62);
+  assert.deepEqual(d.map((event) => [event.on, event.time]), [[true, 2000], [false, 5000]]);
+});

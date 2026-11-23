@@ -218,6 +218,7 @@ def strip_namespaces(root):
     return root
 
 
+BEAT_QUARTERS = {'whole': 4, 'half': 2, 'quarter': 1, 'eighth': 0.5, '16th': 0.25, '32nd': 0.125}
 DYNAMICS = {'p', 'pp', 'ppp', 'pppp', 'mp', 'mf', 'f', 'ff', 'fff', 'ffff', 'sf', 'sfz', 'sffz', 'sfp', 'fp', 'fz', 'rf', 'rfz', 'pf'}
 
 
@@ -244,6 +245,12 @@ def direction_marks(direction):
         for item in kind:
             if item.tag == 'metronome' and item.findtext('per-minute'):
                 marks.append(('tempo', f"bpm={item.findtext('per-minute').strip()}"))
+                # Quarter notes per minute, for playback: scale by the beat unit (dotted = ×1.5).
+                try:
+                    unit = BEAT_QUARTERS.get(item.findtext('beat-unit', 'quarter'), 1) * (1.5 if item.find('beat-unit-dot') is not None else 1)
+                    marks.append(('qpm', str(round(float(item.findtext('per-minute')) * unit, 2))))
+                except ValueError:
+                    pass
                 has_metronome = True
             elif item.tag == 'dynamics':
                 for level in item:
@@ -257,6 +264,8 @@ def direction_marks(direction):
     sound = direction.find('sound')
     if not has_metronome and sound is not None and sound.get('tempo'):
         marks.append(('sound-tempo', f"bpm={round(float(sound.get('tempo')))}"))  # playback-only tempo
+    if sound is not None and sound.get('tempo'):
+        marks.append(('qpm', str(round(float(sound.get('tempo')), 2))))  # <sound tempo> is always in quarters
     return marks
 
 
@@ -359,7 +368,14 @@ def simplify(song_id, title):
             notes.append(item)
         item = {'number': measure['number'], 'duration': measure['duration'], 'resolution': resolution, 'notes': notes}
         marks = []
-        for mark in sorted(measure['marks'], key=lambda m: (m['start'], ['time', 'tempo', 'sound-tempo', 'words', 'dynamic', 'wedge'].index(m['kind']))):
+        # Playback tempo changes (quarter notes per minute), separate from the displayed markings.
+        tempos = []
+        for mark in sorted((m for m in measure['marks'] if m['kind'] == 'qpm'), key=lambda m: m['start']):
+            tempo = {'start': min(mark['start'], max(0, measure['duration'] - 1)), 'qpm': float(mark['text'])}
+            if not tempos or tempos[-1] != tempo:
+                tempos.append(tempo)
+        for mark in sorted((m for m in measure['marks'] if m['kind'] != 'qpm'),
+                           key=lambda m: (m['start'], ['time', 'tempo', 'sound-tempo', 'words', 'dynamic', 'wedge'].index(m['kind']))):
             if mark['kind'] == 'sound-tempo':
                 # Playback tempos (often per-measure ramps) only stand in when the score has no tempo mark yet.
                 if last['tempo'] is not None:
@@ -372,6 +388,8 @@ def simplify(song_id, title):
             marks.append({**mark, 'start': min(mark['start'], max(0, measure['duration'] - 1))})
         if marks:
             item['marks'] = marks
+        if tempos:
+            item['tempos'] = tempos
         out_measures.append(item)
 
     song = {

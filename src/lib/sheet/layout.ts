@@ -20,6 +20,10 @@ export type SheetNote = {
 
 export type MeasureLayout = {
   number: string;
+  /** Index of the measure in the song. */
+  index: number;
+  /** Ticks per time frame. */
+  resolution: number;
   frames: number;
   /** Lane count for each octave from 0 to the highest octave used. */
   lanes: number[];
@@ -53,7 +57,7 @@ export function digitOf(midi: number): string {
  * any two notes that share a time frame are stacked by ascending pitch
  * (lower pitch on a higher row). Notes that do not overlap may share a row.
  */
-export function layoutMeasure(measure: SongMeasure): MeasureLayout {
+export function layoutMeasure(measure: SongMeasure, index = 0): MeasureLayout {
   const resolution = measure.resolution;
   const frames = Math.max(1, Math.round(measure.duration / resolution));
   const reach = Array.from({ length: frames }, () => -1);
@@ -81,7 +85,7 @@ export function layoutMeasure(measure: SongMeasure): MeasureLayout {
   const lanes = Array.from({ length: top + 1 }, () => 0);
   for (const note of placed) lanes[note.octave] = Math.max(lanes[note.octave], note.lane + 1);
   const marks = (measure.marks ?? []).map((mark) => ({ ...mark, frame: Math.min(frames - 1, Math.floor(mark.start / resolution)) }));
-  return { number: measure.number, frames, lanes, notes: placed, reach, marks };
+  return { number: measure.number, index, resolution, frames, lanes, notes: placed, reach, marks };
 }
 
 /** Shares lane counts across the measures of one stream. */
@@ -122,12 +126,12 @@ export type SystemLayout = { hands: { hand: Hand; stream: StreamLayout }[] };
  */
 export function layoutSystems(measures: SongMeasure[], width: number, separate: boolean): SystemLayout[] {
   if (!separate) {
-    return layoutStreams(measures.map(layoutMeasure), width).map((s) => ({ hands: [{ hand: 'both', stream: s }] }));
+    return layoutStreams(measures.map((measure, index) => layoutMeasure(measure, index)), width).map((s) => ({ hands: [{ hand: 'both', stream: s }] }));
   }
-  const onlyHand = (measure: SongMeasure, left: boolean) =>
-    layoutMeasure({ ...measure, notes: measure.notes.filter((note) => (note.hand === 'left') === left) });
-  const right = measures.map((measure) => onlyHand(measure, false));
-  const left = measures.map((measure) => onlyHand(measure, true));
+  const onlyHand = (measure: SongMeasure, index: number, left: boolean) =>
+    layoutMeasure({ ...measure, notes: measure.notes.filter((note) => (note.hand === 'left') === left) }, index);
+  const right = measures.map((measure, index) => onlyHand(measure, index, false));
+  const left = measures.map((measure, index) => onlyHand(measure, index, true));
   let index = 0;
   return layoutStreams(right, width).map((rightStream) => {
     const count = rightStream.measures.length;
