@@ -3,9 +3,9 @@
  * PWA keeps across launches), and the app asks the browser to mark that storage
  * persistent so it is not evicted under storage pressure.
  *
- * Keyflow 0.7 saves its own preferences (min-box, lockstep scrolling, theme) in
- * sessionStorage, which is cleared when the tab or PWA window closes. We mirror
- * those keys into localStorage and seed them back before Keyflow starts.
+ * Keyflow (0.11+) saves its own preferences (min-box, lockstep scrolling, theme) in
+ * localStorage under the same prefix. Older builds of this app mirrored them under
+ * `nhacode:keyflow:*`; those are seeded into sessionStorage once so Keyflow migrates them.
  */
 export const PREFIX = 'nhacode:';
 const KEYFLOW_KEYS = ['min_box', 'lockstep_scrolling', 'theme_id'] as const;
@@ -35,14 +35,9 @@ export function restoreKeyflowPreferences() {
   for (const key of KEYFLOW_KEYS) {
     try {
       const saved = localStorage.getItem(`${PREFIX}keyflow:${key}`);
-      if (saved !== null) sessionStorage.setItem(PREFIX + key, saved);
+      if (saved !== null && localStorage.getItem(PREFIX + key) === null) sessionStorage.setItem(PREFIX + key, saved);
     } catch {}
   }
-}
-
-/** Save one Keyflow preference permanently, in the same string form Keyflow uses. */
-export function saveKeyflowPreference(key: KeyflowKey, value: string) {
-  try { localStorage.setItem(`${PREFIX}keyflow:${key}`, value); } catch {}
 }
 
 /** Ask the browser not to evict this origin's storage. Resolves to whether it is persistent. */

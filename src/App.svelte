@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import { Keyflow, KeyboardDisplay, interaction, lockstep_scrolling, min_box, state_theme, type InteractionEvent } from '@legitminh/keyflow';
+  import { Keyflow, KeyboardDisplay, interaction, type InteractionEvent } from '@legitminh/keyflow';
   import PianoKey from './lib/PianoKey.svelte';
   import Settings from './lib/Settings.svelte';
   import ViewToggle from './lib/ViewToggle.svelte';
@@ -13,7 +13,7 @@
   import type { InstrumentDefinition } from './lib/audio/types';
   import { clampMargin, loadMargins, saveMargins, type Side } from './lib/margins';
   import { clampKeyBorder, clampLine, loadKeyBorder, loadLineWidths, saveKeyBorder, saveLineWidths, type LineWidths } from './lib/sheet/lines';
-  import { isBoolean, isString, readPref, saveKeyflowPreference, writePref } from './lib/preferences';
+  import { isBoolean, isString, readPref, writePref } from './lib/preferences';
 
   // Every user setting is read from, and written to, permanent browser storage.
   const savedInstrument = instruments.find((item) => item.id === readPref('instrument', '', isString)) ?? instruments[0];
@@ -44,10 +44,6 @@
     : noteRows);
   const sounding = $derived(new Set([...held.values()].map((note) => note.id)));
   $effect(() => { if (settingsOpen) stopAll(); });
-  // Keyflow keeps these in sessionStorage; mirror them so they survive closing the app.
-  $effect(() => saveKeyflowPreference('min_box', String(min_box.value)));
-  $effect(() => saveKeyflowPreference('lockstep_scrolling', String(lockstep_scrolling.enabled)));
-  $effect(() => saveKeyflowPreference('theme_id', String(state_theme.theme_id)));
 
   async function prepare(definition?: InstrumentDefinition) {
     const request = ++generation;

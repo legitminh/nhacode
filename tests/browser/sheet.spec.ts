@@ -120,14 +120,18 @@ test('Settings switches the sheet between native and Keyflow lockstep scrolling'
   await page.getByRole('button', { name: /^Sheet/ }).click();
   await page.getByRole('button', { name: /^Keyboard/ }).click();
   await expect(page.locator('.sheet-note').first()).toBeVisible();
-  const world = page.locator('.sheet-scroll .world');
-  await expect(world).not.toHaveAttribute('style', /translateY/);
+  // Keyflow's Camera marks native scrolling with .native-scroll; lockstep paging drops it.
+  const viewport = page.locator('.sheet-scroll .viewport');
+  await expect(viewport).toHaveClass(/native-scroll/);
   await paneMenu(page, 'Sheet');
   await page.getByRole('button', { name: /Lockstep scrolling: Off/ }).click();
   await expect(page.getByRole('button', { name: /Lockstep scrolling: On/ })).toBeVisible();
   await closeSettings(page);
+  await expect(viewport).not.toHaveClass(/native-scroll/);
+  const top = () => page.locator('.sheet-stream-box').first().evaluate((box) => box.getBoundingClientRect().top);
+  const before = await top();
   await page.getByRole('button', { name: '↓' }).click();
-  await expect(world).toHaveAttribute('style', /translateY\(-[1-9]/);
+  await expect.poll(top).toBeLessThan(before - 10);
   // Paging lands on the top of a stream rather than cutting one in half.
   await page.waitForTimeout(500);
   const offsets = await page.evaluate(() => {
@@ -136,7 +140,7 @@ test('Settings switches the sheet between native and Keyflow lockstep scrolling'
   });
   expect(offsets).toContain(0);
   await page.reload();
-  await expect(world).toHaveAttribute('style', /translateY/); // Keyflow remembers the mode
+  await expect(viewport).not.toHaveClass(/native-scroll/); // Keyflow remembers the mode
 });
 
 test('sheet line widths are adjustable and every setting survives closing the app', async ({ page, context }) => {
@@ -166,7 +170,7 @@ test('sheet line widths are adjustable and every setting survives closing the ap
   await expect(next.locator('.octave-zero').first()).toBeAttached();
   expect(await width(next, '.octave-zero')).toBeCloseTo(box * .1);
   expect(await width(next, '.octave-line')).toBeCloseTo(box * .05);
-  await expect(next.locator('.sheet-scroll .world')).toHaveAttribute('style', /translateY/);
+  await expect(next.locator('.sheet-scroll .viewport')).not.toHaveClass(/native-scroll/);
   expect(await next.evaluate(() => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--min-box')))).toBeCloseTo(38.4);
   await expect(next.locator('html')).toHaveAttribute('data-storage', /persistent|best-effort/);
 });
