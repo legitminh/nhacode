@@ -59,3 +59,21 @@ test('song search matches title or composer words, accents ignored, and requires
   assert.deepEqual(ids('', ['electronic']), ['c']);
   assert.deepEqual(ids('nothing'), []);
 });
+
+test('separate hands split each measure by hand and keep both hands aligned', async () => {
+  const { layoutSystems } = await import('../src/lib/sheet/layout.ts');
+  const measures = [
+    { number: '1', duration: 4, resolution: 1, notes: [{ start: 0, duration: 1, midi: 69 }, { start: 0, duration: 2, midi: 45, hand: 'left' as const }] },
+    { number: '2', duration: 2, resolution: 1, notes: [{ start: 1, duration: 1, midi: 33, hand: 'left' as const }] },
+  ];
+  const together = layoutSystems(measures, 100, false);
+  assert.deepEqual(together.map((s) => s.hands.map((h) => h.hand)), [['both']]);
+  assert.equal(together[0].hands[0].stream.measures[0].notes.length, 2);
+  const apart = layoutSystems(measures, 5, true);
+  assert.deepEqual(apart.map((s) => s.hands.map((h) => h.hand)), [['right', 'left'], ['right', 'left']]);
+  const [right, left] = apart[0].hands.map((h) => h.stream);
+  assert.deepEqual(right.measures[0].notes.map((n) => n.midi), [69]);
+  assert.deepEqual(left.measures[0].notes.map((n) => n.midi), [45]);
+  assert.equal(right.frames, left.frames);
+  assert.deepEqual(apart[1].hands[0].stream.measures[0].notes, []);
+});

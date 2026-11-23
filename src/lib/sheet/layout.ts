@@ -81,23 +81,55 @@ export function layoutMeasure(measure: SongMeasure): MeasureLayout {
   return { number: measure.number, frames, lanes, notes: placed, reach };
 }
 
+/** Shares lane counts across the measures of one stream. */
+function stream(measures: MeasureLayout[]): StreamLayout {
+  const lanes: number[] = [];
+  let frames = 0;
+  for (const measure of measures) {
+    frames += measure.frames;
+    measure.lanes.forEach((count, octave) => { lanes[octave] = Math.max(lanes[octave] ?? 0, count); });
+  }
+  return { measures, lanes: Array.from({ length: Math.max(1, lanes.length) }, (_, o) => lanes[o] ?? 0), frames };
+}
+
 /** Packs measures into streams that fit `width` time frames; each stream wraps below the previous one. */
 export function layoutStreams(measures: MeasureLayout[], width: number): StreamLayout[] {
-  const streams: StreamLayout[] = [];
-  let current: StreamLayout | undefined;
+  const groups: MeasureLayout[][] = [];
+  let frames = 0;
   for (const measure of measures) {
-    if (!current || (current.measures.length > 0 && current.frames + measure.frames > width)) {
-      current = { measures: [], lanes: [], frames: 0 };
-      streams.push(current);
+    const current = groups.at(-1);
+    if (!current || (current.length > 0 && frames + measure.frames > width)) {
+      groups.push([measure]);
+      frames = measure.frames;
+    } else {
+      current.push(measure);
+      frames += measure.frames;
     }
-    current.measures.push(measure);
-    current.frames += measure.frames;
-    measure.lanes.forEach((count, octave) => {
-      current!.lanes[octave] = Math.max(current!.lanes[octave] ?? 0, count);
-    });
   }
-  for (const stream of streams) {
-    for (let octave = 0; octave < stream.lanes.length; octave++) stream.lanes[octave] ??= 0;
+  return groups.map(stream);
+}
+
+export type Hand = 'both' | 'right' | 'left';
+/** One line of the sheet: a single stream, or the right-hand stream above the left-hand one. */
+export type SystemLayout = { hands: { hand: Hand; stream: StreamLayout }[] };
+
+/**
+ * Lays out a song as systems. With `separate`, each measure is laid out once per hand
+ * (same frames, so the hands stay aligned) and both hands wrap at the same measures.
+ */
+export function layoutSystems(measures: SongMeasure[], width: number, separate: boolean): SystemLayout[] {
+  if (!separate) {
+    return layoutStreams(measures.map(layoutMeasure), width).map((s) => ({ hands: [{ hand: 'both', stream: s }] }));
   }
-  return streams;
+  const onlyHand = (measure: SongMeasure, left: boolean) =>
+    layoutMeasure({ ...measure, notes: measure.notes.filter((note) => (note.hand === 'left') === left) });
+  const right = measures.map((measure) => onlyHand(measure, false));
+  const left = measures.map((measure) => onlyHand(measure, true));
+  let index = 0;
+  return layoutStreams(right, width).map((rightStream) => {
+    const count = rightStream.measures.length;
+    const leftStream = stream(left.slice(index, index + count));
+    index += count;
+    return { hands: [{ hand: 'right', stream: rightStream }, { hand: 'left', stream: leftStream }] };
+  });
 }

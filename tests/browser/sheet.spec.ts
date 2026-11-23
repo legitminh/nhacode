@@ -205,3 +205,25 @@ test('the song screen searches by name and filters by tags, with Keyflow shortcu
   await expect(page.locator('[data-song="sakura"]')).toBeVisible();
   await expect(page.getByRole('button', { name: /Song: Sakura/ })).toBeVisible();
 });
+
+test('Settings can show the left and right hands as separate streams', async ({ page }) => {
+  await page.getByRole('button', { name: /^Sheet/ }).click();
+  await expect(page.locator('.sheet-stream').first()).toHaveAttribute('data-hand', 'both');
+  await page.getByRole('button', { name: /Settings/ }).click();
+  await page.getByRole('button', { name: /Sheet hands: Together/ }).click();
+  await page.keyboard.press('Escape');
+  const system = page.locator('.sheet-stream-box').first();
+  await expect(system.locator('.sheet-stream')).toHaveCount(2);
+  const [right, left] = await system.locator('.sheet-stream').evaluateAll((streams) => streams.map((stream) => ({
+    hand: stream.getAttribute('data-hand'), top: stream.getBoundingClientRect().top,
+    midis: [...stream.querySelectorAll('.sheet-note')].map((note) => Number(note.getAttribute('data-midi'))),
+  })));
+  expect([right.hand, left.hand]).toEqual(['right', 'left']);
+  expect(right.top).toBeLessThan(left.top);
+  // Für Elise opens with the right hand's E5–D♯5; its left-hand A2 arpeggio comes after.
+  expect(right.midis).toEqual(expect.arrayContaining([76, 75]));
+  expect(right.midis).not.toContain(45);
+  expect(left.midis).toContain(45);
+  await page.reload();
+  await expect(page.locator('.sheet-stream-box').first().locator('.sheet-stream')).toHaveCount(2);
+});

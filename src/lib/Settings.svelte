@@ -7,7 +7,7 @@
   import BoxInput from './BoxInput.svelte';
 
   let { open = $bindable(false), transposed, instrumentId, range, margins, lineWidths,
-    ontranspose, oninstrument, onrange, onmargin, online, keyBorder, onkeyborder }: {
+    ontranspose, oninstrument, onrange, onmargin, online, keyBorder, onkeyborder, separateHands, onseparatehands }: {
     open?: boolean;
     transposed: boolean;
     instrumentId: string;
@@ -21,6 +21,8 @@
     online: (line: keyof LineWidths, value: number) => void;
     keyBorder: number;
     onkeyborder: (value: number) => void;
+    separateHands: boolean;
+    onseparatehands: (value: boolean) => void;
   } = $props();
   const sideName = (side: Side) => side[0].toUpperCase() + side.slice(1);
   const LINES = [['origin', 'Origin line'], ['octave', 'Octave lines']] as const;
@@ -123,6 +125,7 @@
           {/each}
         {/snippet}
       </SubKeyframe>
+      <Button on_close={() => onseparatehands(!separateHands)}>Sheet hands: {separateHands ? 'Separate' : 'Together'}</Button>
       <Button on_close={() => ontranspose(!transposed)}>Transpose display: {transposed ? 'On' : 'Off'}</Button>
       <Button on_close={() => lockstep_scrolling.set(!lockstep_scrolling.enabled)}
         >Lockstep scrolling: {lockstep_scrolling.enabled ? 'On' : 'Off'}</Button>

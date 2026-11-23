@@ -6,6 +6,8 @@ export type SongNote = {
   midi: number;
   /** True when this segment continues a note tied over from the previous measure. */
   tied?: boolean;
+  /** Which hand plays it; omitted means the right hand. */
+  hand?: 'left';
 };
 
 export type SongMeasure = {

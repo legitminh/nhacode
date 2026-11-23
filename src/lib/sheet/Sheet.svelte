@@ -1,13 +1,13 @@
 <script lang="ts">
   import { Document, min_box, must_view } from '@legitminh/keyflow';
-  import { layoutMeasure, layoutStreams, type MeasureLayout, type StreamLayout } from './layout';
+  import { layoutSystems, type MeasureLayout, type StreamLayout } from './layout';
   import type { Song } from './types';
   import { octaveLineColor } from '../colors';
 
   const files = import.meta.glob<Song>(['../../songs/*.json', '!../../songs/index.json'], { import: 'default' });
   import type { LineWidths } from './lines';
 
-  let { songId, lineWidths }: { songId: string; lineWidths: LineWidths } = $props();
+  let { songId, lineWidths, separateHands = false }: { songId: string; lineWidths: LineWidths; separateHands?: boolean } = $props();
 
   // Sizes follow Keyflow's min-box: a row is one box tall, a time frame is half a box
   // (one monospace glyph at 0.8 box), and an octave line takes an eighth of a box.
@@ -20,8 +20,8 @@
   let song = $state<Song | undefined>();
   let error = $state('');
   let width = $state(0);
-  const measures = $derived<MeasureLayout[]>(song ? song.measures.map(layoutMeasure) : []);
-  const streams = $derived(layoutStreams(measures, Math.max(1, Math.floor((width - 16) / CELL))));
+  const systems = $derived(song ? layoutSystems(song.measures, Math.max(1, Math.floor((width - 16) / CELL)), separateHands) : []);
+  const HAND_NAMES: Record<string, string> = { right: 'Right hand', left: 'Left hand' };
 
   $effect(() => {
     const id = songId;
@@ -70,13 +70,15 @@
       <p role="alert">{error}</p>
     {:else if song}
       <div class="sheet-streams" data-song={song.id} aria-label={`${song.title}, ${song.composer}`}>
-        {#each streams as stream, index}
+        {#each systems as system, index}
+          <!-- One system: a single stream, or the right hand above the left hand. Paging never splits it. -->
+          <div class="sheet-stream-box" class:hands={system.hands.length > 1} data-system={index} use:must_view>
+          {#each system.hands as { hand, stream }}
           {@const xs = offsets(stream)}
           {@const height = streamHeight(stream)}
-          <div class="sheet-stream-box" use:must_view>
-          <svg class="sheet-stream" data-stream={index} width={stream.frames * CELL} height={height}
+          <svg class="sheet-stream" data-stream={index} data-hand={hand} width={stream.frames * CELL} height={height}
             viewBox={`0 0 ${stream.frames * CELL} ${height}`} role="img"
-            aria-label={`Measures ${stream.measures[0].number} to ${stream.measures.at(-1)!.number}`}>
+            aria-label={`${hand === 'both' ? '' : `${HAND_NAMES[hand]}, `}measures ${stream.measures[0].number} to ${stream.measures.at(-1)!.number}`}>
             <line class="octave-zero" data-line="0" style:stroke={octaveLineColor(0)} x1="0" x2={stream.frames * CELL}
               y1={ORIGIN / 2} y2={ORIGIN / 2} stroke-width={ORIGIN} />
             {#each stream.measures as measure, m}
@@ -103,6 +105,7 @@
               </g>
             {/each}
           </svg>
+          {/each}
           </div>
         {/each}
       </div>
@@ -133,6 +136,14 @@
   }
   .sheet-streams { display: flex; flex-direction: column; gap: calc(var(--min-box) / 2); padding-bottom: var(--min-box); }
   .sheet-stream { display: block; overflow: visible; }
+  /* Separate hands: the right-hand stream sits just above the left-hand one, joined by a bracket. */
+  .sheet-stream-box.hands {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--min-box) / 4);
+    padding-left: calc(var(--min-box) / 8);
+    border-left: 2px solid var(--tertiary);
+  }
   .octave-zero, .octave-line { stroke: currentColor; }
   .barline { stroke: var(--tertiary); stroke-width: 1; }
   .hold { stroke: currentColor; stroke-width: 1.5; }

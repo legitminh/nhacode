@@ -230,6 +230,8 @@ def parse_score(xml):
 
     for part in parts:
         divisions = 1
+        staves = 1
+        clefs = {}  # staff number -> clef sign, to tell hands apart
         open_ties = {}  # (staff, voice, midi) -> note dict, awaiting a tie stop
         for index, measure in enumerate(part.findall('measure')):
             if index == len(measures):
@@ -237,8 +239,13 @@ def parse_score(xml):
             out = measures[index]
             pos = last_start = end = 0
             for element in measure:
-                if element.tag == 'attributes' and element.find('divisions') is not None:
-                    divisions = int(float(element.find('divisions').text))
+                if element.tag == 'attributes':
+                    if element.find('divisions') is not None:
+                        divisions = int(float(element.find('divisions').text))
+                    if element.find('staves') is not None:
+                        staves = int(element.findtext('staves'))
+                    for clef in element.findall('clef'):
+                        clefs[clef.get('number', '1')] = clef.findtext('sign', 'G')
                 scale = tpq // divisions
                 if element.tag in ('backup', 'forward'):
                     amount = int(float(element.findtext('duration', '0'))) * scale
@@ -267,7 +274,10 @@ def parse_score(xml):
                     previous['duration'] += duration  # tied inside the measure: one held note
                     note = previous
                 else:
-                    note = {'measure': index, 'start': start, 'duration': duration, 'midi': midi}
+                    staff = element.findtext('staff', '1')
+                    # A piano grand staff's lower staff is the left hand; other staves go by their clef.
+                    left = staff == '2' if staves == 2 else clefs.get(staff) == 'F'
+                    note = {'measure': index, 'start': start, 'duration': duration, 'midi': midi, 'hand': 'left' if left else 'right'}
                     if previous is not None:
                         note['tied'] = True
                     out['notes'].append(note)
@@ -296,6 +306,8 @@ def simplify(song_id, title):
             item = {'start': note['start'], 'duration': min(note['duration'], measure['duration'] - note['start']), 'midi': note['midi']}
             if note.get('tied'):
                 item['tied'] = True
+            if note['hand'] == 'left':
+                item['hand'] = 'left'
             notes.append(item)
         out_measures.append({'number': measure['number'], 'duration': measure['duration'], 'resolution': resolution, 'notes': notes})
 

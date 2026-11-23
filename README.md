@@ -81,6 +81,10 @@ The sheet has no stave; it only shows which key is pressed when:
   the line above octave n is n. Digits and hold dashes take their octave's color
   too, so each octave block matches the line above it.
 - Measures wrap to a new stream at the screen edge.
+- **Settings → Sheet hands** switches between one stream per line (Together) and
+  a right-hand stream above a left-hand stream (Separate), joined by a bracket and
+  wrapped at the same measures. Hands come from the score: a piano grand staff's
+  lower staff is the left hand; other staves count as left hand when in bass clef.
 - **Settings → Sheet lines** has number fields for the origin line and octave line
   stroke widths, in min-box units (0.01–0.25; defaults 0.06 and 0.03).
 - The sheet sits in Keyflow's `Document`. **Settings → Lockstep scrolling** switches

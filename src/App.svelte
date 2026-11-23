@@ -34,6 +34,7 @@
   let margins = $state(loadMargins());
   let lineWidths = $state(loadLineWidths());
   let keyBorder = $state(loadKeyBorder());
+  let separateHands = $state(readPref('sheet:separate-hands', false, isBoolean));
   let songId = $state(readPref('song', (songs.find((song) => song.id === 'fur-elise') ?? songs[0])?.id ?? '', (value): value is string => songs.some((song) => song.id === value)));
   let generation = 0;
   const noteRows = $derived(NOTE_NAMES.map((_, row) => octaves.map((octave) => noteAt(octave, row))));
@@ -147,6 +148,11 @@
     writePref('transposed', value);
   }
 
+  function setSeparateHands(value: boolean) {
+    separateHands = value;
+    writePref('sheet:separate-hands', value);
+  }
+
   function setKeyBorder(value: number) {
     keyBorder = clampKeyBorder(value);
     saveKeyBorder(keyBorder);
@@ -174,7 +180,7 @@
       <Settings bind:open={settingsOpen} {transposed} {instrumentId} {range}
         ontranspose={setTransposed} oninstrument={selectInstrument} onrange={selectRange}
         {margins} onmargin={setMargin} {lineWidths} online={setLineWidth}
-        {keyBorder} onkeyborder={setKeyBorder} />
+        {keyBorder} onkeyborder={setKeyBorder} {separateHands} onseparatehands={setSeparateHands} />
       <ViewToggle label="Sheet" shortcut="s" on={showSheet} disabled={settingsOpen} ontoggle={() => toggleView('sheet')}>sheet</ViewToggle>
       <ViewToggle label="Keyboard" shortcut="k" on={showKeyboard} disabled={settingsOpen} ontoggle={() => toggleView('keyboard')}>
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
@@ -201,7 +207,7 @@
         </section>
       {/if}
       {#if showSheet}
-        <div class="sheet-view"><Sheet {songId} {lineWidths} /></div>
+        <div class="sheet-view"><Sheet {songId} {lineWidths} {separateHands} /></div>
       {/if}
     </div>
   </main>
