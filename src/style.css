@@ -95,22 +95,42 @@ main.transposed { --rows: 8; --columns: 12; }
 .song-select { position: relative; min-width: 0; }
 .song-select > .subkeyframe-trigger { white-space: nowrap; }
 .song-select > .subkeyframe-trigger .content { background: transparent; }
+/* The song selection screen covers everything below the toolbar. */
 .settings-bar .song-select > .subkeyframe-panel {
   position: fixed;
-  inset: var(--min-box) .5rem auto auto;
+  inset: var(--min-box) 0 0 0;
   z-index: 2;
   box-sizing: border-box;
-  width: min(calc(var(--min-box) * 12), calc(100vw - 1rem));
-  max-height: calc(100dvh - var(--min-box) - 8px);
   overflow-y: auto;
-  padding: 1rem;
+  margin: 0;
+  padding: .5rem;
   color: var(--primary);
   background: var(--background);
-  border: 1px solid var(--primary);
-  border-radius: .25rem;
+  border-top: 1px solid var(--primary);
   font: var(--text-size) / var(--min-box) var(--font-mono);
 }
-.song-select .subkeyframe-items button { display: block; width: 100%; border: 1px solid currentColor; padding: 0 calc(var(--min-box) / 4); text-align: left; font: var(--text-size) / var(--min-box) var(--font-mono); }
+.song-screen { display: flex; flex-direction: column; gap: .5rem; max-width: calc(var(--min-box) * 24); }
+.song-search input {
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--min-box);
+  padding: 0 calc(var(--min-box) / 4);
+  border: 1px solid var(--primary);
+  border-radius: .25rem;
+  color: var(--primary);
+  background: var(--background);
+  font: inherit;
+}
+.song-tags { display: flex; flex-wrap: wrap; gap: .5rem; }
+.song-tag button { border: 1px solid var(--primary); border-radius: .25rem; padding: 0 calc(var(--min-box) / 4); }
+.song-tag.on .button .content, .song-tag.on .button .content.content { color: var(--background); background: var(--primary); }
+.song-count { margin: 0; color: var(--tertiary); }
+.song-results { display: flex; flex-direction: column; gap: .25rem; margin: 0; padding: 0; list-style: none; }
+.song-results button { display: block; width: 100%; border: 1px solid currentColor; padding: 0 calc(var(--min-box) / 4); text-align: left; }
+.song-results li.current button { border-width: 3px; }
+.song-results .content { display: flex; flex-wrap: wrap; column-gap: 1ch; }
+.song-meta { color: var(--tertiary); }
+.song-select .subkeyframe-panel .route { margin-right: .5rem; }
 
 .settings-menu > .subkeyframe-trigger {
   display: flex;

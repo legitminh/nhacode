@@ -1,7 +1,121 @@
 [
   {
+    "id": "arirang",
+    "title": "Arirang",
+    "composer": "Korean traditional",
+    "tags": [
+      "classical",
+      "eastern"
+    ]
+  },
+  {
+    "id": "clair-de-lune",
+    "title": "Clair de Lune",
+    "composer": "Claude Debussy",
+    "tags": [
+      "classical",
+      "western"
+    ]
+  },
+  {
     "id": "fur-elise",
     "title": "Für Elise",
-    "composer": "Ludwig van Beethoven"
+    "composer": "Ludwig van Beethoven",
+    "tags": [
+      "classical",
+      "western"
+    ]
+  },
+  {
+    "id": "gymnopedie-1",
+    "title": "Gymnopédie No. 1",
+    "composer": "Erik Satie",
+    "tags": [
+      "classical",
+      "western"
+    ]
+  },
+  {
+    "id": "mountain-king",
+    "title": "In the Hall of the Mountain King",
+    "composer": "Edvard Grieg",
+    "tags": [
+      "classical",
+      "western"
+    ]
+  },
+  {
+    "id": "jasmine-flower",
+    "title": "Jasmine Flower (Mò Lì Huā)",
+    "composer": "Chinese traditional",
+    "tags": [
+      "classical",
+      "eastern"
+    ]
+  },
+  {
+    "id": "moonlight-sonata",
+    "title": "Moonlight Sonata, 1st movement",
+    "composer": "Ludwig van Beethoven",
+    "tags": [
+      "classical",
+      "western"
+    ]
+  },
+  {
+    "id": "nocturne-op9-2",
+    "title": "Nocturne Op. 9 No. 2",
+    "composer": "Frédéric Chopin",
+    "tags": [
+      "classical",
+      "western"
+    ]
+  },
+  {
+    "id": "prelude-in-c",
+    "title": "Prelude in C major, BWV 846",
+    "composer": "Johann Sebastian Bach",
+    "tags": [
+      "classical",
+      "western"
+    ]
+  },
+  {
+    "id": "dies-irae",
+    "title": "Requiem: Dies Irae",
+    "composer": "Wolfgang Amadeus Mozart",
+    "tags": [
+      "classical",
+      "western",
+      "orchestral"
+    ]
+  },
+  {
+    "id": "rondo-alla-turca",
+    "title": "Rondo alla Turca",
+    "composer": "Wolfgang Amadeus Mozart",
+    "tags": [
+      "classical",
+      "western"
+    ]
+  },
+  {
+    "id": "sakura",
+    "title": "Sakura Sakura",
+    "composer": "Japanese traditional",
+    "tags": [
+      "classical",
+      "eastern"
+    ]
+  },
+  {
+    "id": "symphony-5",
+    "title": "Symphony No. 5 (easy piano)",
+    "composer": "Ludwig van Beethoven",
+    "tags": [
+      "classical",
+      "western",
+      "orchestral"
+    ]
   }
 ]

@@ -43,3 +43,19 @@ test('measures wrap into streams by width and share lane counts', () => {
   assert.deepEqual(streams.map((s) => s.measures.map((m) => m.number)), [['1', '2'], ['1']]);
   assert.deepEqual(streams[0].lanes, [1, 0, 0, 1]);
 });
+
+test('song search matches title or composer words, accents ignored, and requires every tag', async () => {
+  const { findSongs } = await import('../src/lib/sheet/search.ts');
+  const list = [
+    { id: 'a', title: 'Für Elise', composer: 'Ludwig van Beethoven', tags: ['classical', 'western'] as const },
+    { id: 'b', title: 'Jasmine Flower', composer: 'Chinese traditional', tags: ['classical', 'eastern'] as const },
+    { id: 'c', title: 'Synth Study', composer: 'Someone', tags: ['western', 'electronic'] as const },
+  ].map((song) => ({ ...song, tags: [...song.tags] }));
+  const ids = (query: string, tags: string[] = []) => findSongs(list, query, new Set(tags as never[])).map((song) => song.id);
+  assert.deepEqual(ids('fur'), ['a']);
+  assert.deepEqual(ids('beethoven elise'), ['a']);
+  assert.deepEqual(ids('', ['classical']), ['a', 'b']);
+  assert.deepEqual(ids('', ['classical', 'eastern']), ['b']);
+  assert.deepEqual(ids('', ['electronic']), ['c']);
+  assert.deepEqual(ids('nothing'), []);
+});

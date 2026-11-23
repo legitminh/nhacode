@@ -59,7 +59,11 @@ Requires Node 22.18+ (Node 24 recommended). Open the local URL printed by Vite.
 The top bar has two Keyflow toggles: **sheet** (shortcut S) and the keyboard icon
 (shortcut K). Either screen can be on or off; when both are on they sit side by
 side. The choice is remembered per browser. While the sheet is on, the **Song**
-menu (M) sits on the same toolbar line.
+button (M) sits on the same toolbar line and opens the song screen: type to
+search titles and composers (Enter picks the first match, Escape leaves the
+field), and toggle the **classical**, **western**, **eastern**, **electronic** and
+**orchestral** tags to filter. Selected tags must all match; classical covers
+both western and eastern classical music. Each result has a Keyflow shortcut.
 
 The sheet has no stave; it only shows which key is pressed when:
 
@@ -84,14 +88,22 @@ The sheet has no stave; it only shows which key is pressed when:
   buttons move one page, landing on a stream's top). Keyflow remembers the mode.
 
 Scores come from [PDMX](https://github.com/pnlong/PDMX) (Zenodo record
-15571083). `scripts/pdmx.py` searches `PDMX.csv`, streams `mxl.tar.gz` until the
-score is found, and caches the raw MXL in `data/pdmx/pdmx.sqlite` (gitignored).
-It then writes the simplified song to `src/songs/<id>.json`, which is committed:
+15571083). PDMX only ships as large archives with no per-score download, so the
+app cannot fetch songs on demand; requested songs are added to the song db
+instead. `scripts/songs.json` lists every requested song (PDMX path, title, and
+optional composer/tag overrides). `scripts/pdmx.py` searches `PDMX.csv`, reads
+each score from `mxl.tar.gz` (a local copy in `data/pdmx/` makes this take
+seconds), caches the raw MXL and tags in `data/pdmx/pdmx.sqlite` (gitignored),
+and writes the simplified song to `src/songs/<id>.json` plus the searchable
+`src/songs/index.json`, both committed. Tags come from PDMX genres, tags, title
+and instruments: classical genre (or eastern folk/world music), eastern for
+Chinese/Japanese/Korean/Indian/Middle Eastern and similar keywords (otherwise
+western), electronic genre, and orchestral for symphonic keywords or orchestral
+instrumentation.
 
 ```bash
-python3 scripts/pdmx.py search "fur elise"
-python3 scripts/pdmx.py fetch fur-elise "fur elise"
-python3 scripts/pdmx.py simplify fur-elise "Für Elise"
+python3 scripts/pdmx.py search "fur elise"   # candidates with their tags
+python3 scripts/pdmx.py sync                  # fetch + simplify everything in scripts/songs.json
 ```
 
 Repeats are shown as written, not unrolled. Grace notes are omitted.

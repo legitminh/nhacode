@@ -8,6 +8,7 @@ soon as the requested score is found, so a song costs a partial download, not 1.
   python3 scripts/pdmx.py search "fur elise"           # list candidates from PDMX.csv
   python3 scripts/pdmx.py fetch fur-elise "fur elise"  # cache the best match's MXL in data/pdmx/pdmx.sqlite
   python3 scripts/pdmx.py simplify fur-elise "Für Elise" # write src/songs/fur-elise.json
+  python3 scripts/pdmx.py sync                         # fetch + simplify everything in scripts/songs.json
 
 The raw MusicXML stays in data/ (gitignored). Only the simplified JSON, which is
 just which key is pressed when, is committed.
@@ -43,6 +44,9 @@ def db():
     conn.execute('''create table if not exists scores (
       id text primary key, path text not null, title text, composer text, license text,
       metadata text, mxl blob not null, fetched_at real not null)''')
+    columns = {row[1] for row in conn.execute('pragma table_info(scores)')}
+    if 'tags' not in columns:
+        conn.execute("alter table scores add column tags text not null default '[]'")
     return conn
 
 
@@ -78,18 +82,49 @@ def candidates(query):
     return sorted(rows, key=score, reverse=True)
 
 
+EASTERN_WORDS = ('chinese', 'china', 'japanese', 'japan', 'korean', 'korea', 'indian', 'india', 'arabic', 'arab',
+                 'persian', 'vietnamese', 'asia', 'asian', 'oriental', 'middleeast', 'koto', 'guzheng', 'erhu',
+                 'raga', 'anime', 'thai', 'arirang', 'indonesian', 'gamelan', 'pipa', 'shamisen')
+ORCHESTRAL_WORDS = ('orchestra', 'orchestral', 'symphony', 'symphonic', 'philharmonic')
+
+
+def tags_for(row):
+    """The app's tags: classical, western or eastern (origin), electronic, orchestral."""
+    genres = set(row['genres'].split('-')) if row['genres'] not in ('', 'NA') else set()
+    words = row['tags'].lower().split('-') if row['tags'] not in ('', 'NA') else []
+    text = normalize(' '.join([row['title'], row['song_name'], row['composer_name']]))
+    eastern = any(word.startswith(EASTERN_WORDS) and not word.startswith(('easterneurope', 'arabesque', 'arabesco'))
+                  for word in words + text.split())
+    programs = [int(p) for p in row['tracks'].split('-') if p.isdigit()] if row['tracks'] not in ('', 'NA') else []
+    families = {p // 8 for p in programs}
+    # General MIDI families: 5-6 strings/ensemble, 7 brass, 8-9 reeds and pipes.
+    orchestral = (any(word.startswith(ORCHESTRAL_WORDS) for word in words + text.split())
+                  or (len(programs) >= 6 and families & {5, 6} and families & {7, 8, 9}))
+    tags = []
+    # Classical covers western art music and eastern classical/traditional music.
+    if 'classical' in genres or (eastern and genres & {'folk', 'worldmusic'}):
+        tags.append('classical')
+    tags.append('eastern' if eastern else 'western')
+    if 'electronic' in genres:
+        tags.append('electronic')
+    if orchestral:
+        tags.append('orchestral')
+    return tags
+
+
 def search(query, limit=15):
     for row in candidates(query)[:limit]:
         print(f"{row['mxl']}\t{row['title']!r}\tby {row['composer_name']}\ttracks={row['n_tracks']}"
               f"\tbars={row['song_length.bars']}\tfav={row['n_favorites']}\trating={row['rating']}x{row['n_ratings']}"
-              f"\tconflict={row['license_conflict']}")
+              f"\tconflict={row['license_conflict']}\ttags={','.join(tags_for(row))}")
 
 
 def stream_mxl(paths):
     """Yield (path, bytes) for each wanted archive member, stopping once all are found."""
     wanted = {p.lstrip('./') for p in paths}
-    request = urllib.request.Request(f'{RECORD}/mxl.tar.gz/content')
-    with urllib.request.urlopen(request) as response:
+    local = DATA / 'mxl.tar.gz'
+    source = open(local, 'rb') if local.exists() else urllib.request.urlopen(f'{RECORD}/mxl.tar.gz/content')
+    with source as response:
         with tarfile.open(fileobj=response, mode='r|gz') as archive:
             seen = 0
             for member in archive:
@@ -122,6 +157,42 @@ def fetch(song_id, query, path=None):
             json.dumps(row), data, time.time()))
         conn.commit()
     print(f'Cached {song_id} in {DB.relative_to(ROOT)}.')
+
+
+def fetch_requested(manifest=ROOT / 'scripts' / 'songs.json'):
+    """Fetch and simplify every song in the requested-songs list that is not cached yet.
+
+    Each entry is {id, title, path, composer?, tags?}; tags override the derived ones.
+    One pass over mxl.tar.gz (a local copy in data/pdmx when present) fetches them all.
+    """
+    entries = json.loads(Path(manifest).read_text())
+    conn = db()
+    missing = [e for e in entries if not conn.execute('select 1 from scores where id = ? and path = ?', (e['id'], e['path'])).fetchone()]
+    if missing:
+        ensure_csv()
+        paths = {e['path'] for e in missing}
+        rows = {}
+        with open(CSV, newline='', encoding='utf-8') as handle:
+            for row in csv.DictReader(handle):
+                if row['mxl'] in paths:
+                    rows[row['mxl']] = row
+        by_path = {e['path'].lstrip('./'): e for e in missing}
+        print(f'Fetching {len(missing)} scores from mxl.tar.gz...', file=sys.stderr)
+        for name, data in stream_mxl(list(paths)):
+            entry = by_path[name]
+            row = rows[entry['path']]
+            conn.execute('insert or replace into scores (id, path, title, composer, license, metadata, mxl, fetched_at, tags) '
+                         'values (?, ?, ?, ?, ?, ?, ?, ?, ?)', (
+                entry['id'], entry['path'], row['title'], entry.get('composer', row['composer_name']), row['license_url'],
+                json.dumps(row), data, time.time(), json.dumps(entry.get('tags') or tags_for(row))))
+            conn.commit()
+    for entry in entries:
+        if 'tags' in entry:
+            conn.execute('update scores set tags = ? where id = ?', (json.dumps(entry['tags']), entry['id']))
+        if 'composer' in entry:
+            conn.execute('update scores set composer = ? where id = ?', (entry['composer'], entry['id']))
+        conn.commit()
+        simplify(entry['id'], entry['title'])
 
 
 # --- MusicXML to "which key is pressed when" -------------------------------------------
@@ -208,10 +279,11 @@ def parse_score(xml):
 
 def simplify(song_id, title):
     conn = db()
-    row = conn.execute('select path, title, composer, license, mxl from scores where id = ?', (song_id,)).fetchone()
+    row = conn.execute('select path, title, composer, license, mxl, metadata, tags from scores where id = ?', (song_id,)).fetchone()
     if not row:
         raise SystemExit(f'{song_id} is not cached yet; run fetch first.')
-    path, source_title, composer, license_url, data = row
+    path, source_title, composer, license_url, data, metadata, saved_tags = row
+    tags = json.loads(saved_tags) if saved_tags and saved_tags != '[]' else tags_for(json.loads(metadata))
     tpq, measures = parse_score(musicxml_from_mxl(data))
     out_measures = []
     for measure in measures:
@@ -228,7 +300,8 @@ def simplify(song_id, title):
         out_measures.append({'number': measure['number'], 'duration': measure['duration'], 'resolution': resolution, 'notes': notes})
 
     song = {
-        'id': song_id, 'title': title or source_title, 'composer': composer or '', 'ticksPerQuarter': tpq,
+        'id': song_id, 'title': title or source_title, 'composer': composer if composer and composer != 'NA' else '',
+        'tags': tags, 'ticksPerQuarter': tpq,
         'source': {'dataset': 'PDMX', 'path': path, 'url': 'https://zenodo.org/records/15571083', 'license': license_url},
         'measures': out_measures,
     }
@@ -236,7 +309,7 @@ def simplify(song_id, title):
     (SONGS / f'{song_id}.json').write_text(json.dumps(song, ensure_ascii=False, separators=(',', ':')) + '\n')
     index_path = SONGS / 'index.json'
     index = json.loads(index_path.read_text()) if index_path.exists() else []
-    index = [entry for entry in index if entry['id'] != song_id] + [{'id': song_id, 'title': song['title'], 'composer': song['composer']}]
+    index = [entry for entry in index if entry['id'] != song_id] + [{'id': song_id, 'title': song['title'], 'composer': song['composer'], 'tags': tags}]
     index_path.write_text(json.dumps(sorted(index, key=lambda e: e['title']), ensure_ascii=False, indent=2) + '\n')
     print(f'Wrote src/songs/{song_id}.json: {len(out_measures)} measures, {sum(len(m["notes"]) for m in out_measures)} notes.')
 
@@ -247,6 +320,8 @@ if __name__ == '__main__':
         search(' '.join(args))
     elif command == 'fetch':
         fetch(args[0], args[1], args[2] if len(args) > 2 else None)
+    elif command == 'sync':
+        fetch_requested(*args[:1])
     elif command == 'simplify':
         simplify(args[0], args[1] if len(args) > 1 else None)
     else:

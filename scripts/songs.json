@@ -1,0 +1,15 @@
+[
+  { "id": "fur-elise", "title": "Für Elise", "tags": ["classical", "western"], "path": "./mxl/9/14/QmRChN12tY2yeGtMsns9hCLa8tLVufrP2XkHUGryLe9R4Z.mxl" },
+  { "id": "moonlight-sonata", "title": "Moonlight Sonata, 1st movement", "path": "./mxl/4/46/QmeuK3Unr7ybzDCvVVbU4Eu878nUjDhRJpZMyzzMY5EQyr.mxl" },
+  { "id": "clair-de-lune", "title": "Clair de Lune", "composer": "Claude Debussy", "path": "./mxl/10/27/QmSJeDjtEuw3PjP17fheDNXGojcQ76HmntyE2T84D5zJYY.mxl" },
+  { "id": "gymnopedie-1", "title": "Gymnopédie No. 1", "composer": "Erik Satie", "path": "./mxl/16/13/QmYcr8xpz7YFAc8mhryoY35CW2WpMCLCGhq3YrmTG4t7X6.mxl" },
+  { "id": "prelude-in-c", "title": "Prelude in C major, BWV 846", "composer": "Johann Sebastian Bach", "path": "./mxl/7/52/QmPxCX56tvSF4ZTgEAGt6dFHoFo9cynYr4BN3ujdd2FdmV.mxl" },
+  { "id": "nocturne-op9-2", "title": "Nocturne Op. 9 No. 2", "composer": "Frédéric Chopin", "path": "./mxl/3/30/QmdLc2evqhNAmuyUBAVJMLDiaCgJ3SoyXv6yvkd1wC7JPd.mxl" },
+  { "id": "rondo-alla-turca", "title": "Rondo alla Turca", "composer": "Wolfgang Amadeus Mozart", "path": "./mxl/6/21/QmNg5rJJQgdSBGEoDjricmzdDa5vtRdhXRYeAjJwMJi1RM.mxl", "tags": ["classical", "western"] },
+  { "id": "mountain-king", "title": "In the Hall of the Mountain King", "composer": "Edvard Grieg", "path": "./mxl/15/53/QmXXdTmXQW5jKbHEHgHuZFuW57wNrtApiba8WidW76APCp.mxl" },
+  { "id": "symphony-5", "title": "Symphony No. 5 (easy piano)", "composer": "Ludwig van Beethoven", "path": "./mxl/1/2/Qmb3TdvE21azQCaKve5SGrA5zVr8aXS9Mynhz8f1R1bbWd.mxl" },
+  { "id": "dies-irae", "title": "Requiem: Dies Irae", "composer": "Wolfgang Amadeus Mozart", "path": "./mxl/3/32/QmdMJZk6TkfyHb4ed9HcUqubFsy1ZgEBdWs7HmfaXX9uek.mxl" },
+  { "id": "jasmine-flower", "title": "Jasmine Flower (Mò Lì Huā)", "composer": "Chinese traditional", "path": "./mxl/6/56/QmNz39utyfxG4PfDPaYjRSsmEFdrSFvnCgUve1Z4wksbPd.mxl", "tags": ["classical", "eastern"] },
+  { "id": "sakura", "title": "Sakura Sakura", "composer": "Japanese traditional", "path": "./mxl/8/1/QmQ2V2JBKPsYPkPg4HbGqzM2wDZBefoC819zTZ1kgi8TUr.mxl", "tags": ["classical", "eastern"] },
+  { "id": "arirang", "title": "Arirang", "composer": "Korean traditional", "path": "./mxl/0/55/QmaYPfaRcsG3bYM9e42SL3jaBGA1uhAHCyqgDEMzKd4h3X.mxl", "tags": ["classical", "eastern"] }
+]

@@ -176,3 +176,32 @@ test('key text and borders take their octave color and a min-box border width fr
   // 0.1 × 48px = 4.8px; browsers snap border widths down to whole device pixels.
   await expect.poll(async () => (await border("0-0")).width).toBeGreaterThanOrEqual(4);
 });
+
+test('the song screen searches by name and filters by tags, with Keyflow shortcuts', async ({ page }) => {
+  await page.getByRole('button', { name: /^Sheet/ }).click();
+  await page.keyboard.press('m');
+  const search = page.getByRole('searchbox', { name: 'Search songs' });
+  await expect(search).toBeFocused();
+  const results = page.getByRole('list', { name: 'Songs' }).getByRole('listitem');
+  const total = await results.count();
+  expect(total).toBeGreaterThan(5);
+
+  await search.fill('jasmine');
+  await expect(results).toHaveCount(1);
+  await search.fill('');
+  await page.getByRole('group', { name: 'Tags' }).getByRole('button', { name: /eastern/ }).click();
+  const eastern = await page.locator('.song-results li').evaluateAll((items) => items.map((item) => item.getAttribute('data-song')));
+  expect(eastern).toEqual(expect.arrayContaining(['jasmine-flower', 'sakura', 'arirang']));
+  expect(eastern).not.toContain('fur-elise');
+  // classical covers both western and eastern classical music.
+  await page.getByRole('group', { name: 'Tags' }).getByRole('button', { name: /eastern/ }).click();
+  await page.getByRole('group', { name: 'Tags' }).getByRole('button', { name: /classical/ }).click();
+  const classical = await page.locator('.song-results li').evaluateAll((items) => items.map((item) => item.getAttribute('data-song')));
+  expect(classical).toEqual(expect.arrayContaining(['fur-elise', 'jasmine-flower']));
+
+  await search.fill('sakura');
+  await search.press('Enter'); // picks the first match and closes the screen
+  await expect(page.locator('.song-screen')).toHaveCount(0);
+  await expect(page.locator('[data-song="sakura"]')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Song: Sakura/ })).toBeVisible();
+});

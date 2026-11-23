@@ -34,7 +34,7 @@
   let margins = $state(loadMargins());
   let lineWidths = $state(loadLineWidths());
   let keyBorder = $state(loadKeyBorder());
-  let songId = $state(readPref('song', songs[0]?.id ?? '', (value): value is string => songs.some((song) => song.id === value)));
+  let songId = $state(readPref('song', (songs.find((song) => song.id === 'fur-elise') ?? songs[0])?.id ?? '', (value): value is string => songs.some((song) => song.id === value)));
   let generation = 0;
   const noteRows = $derived(NOTE_NAMES.map((_, row) => octaves.map((octave) => noteAt(octave, row))));
   const displayRows = $derived(transposed

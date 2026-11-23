@@ -1,4 +1,5 @@
 import catalogue from '../../songs/index.json';
+import type { SongEntry } from './search';
 
-export type SongEntry = { id: string; title: string; composer: string };
+export { TAGS, findSongs, type SongEntry, type Tag } from './search';
 export const songs = catalogue as SongEntry[];
