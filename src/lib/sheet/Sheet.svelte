@@ -1,13 +1,15 @@
 <script lang="ts">
   import { Document, min_box, must_view } from '@legitminh/keyflow';
-  import { layoutSystems, type MeasureLayout, type StreamLayout } from './layout';
+  import { layoutMarks, layoutSystems, type MeasureLayout, type StreamLayout } from './layout';
   import type { Song } from './types';
   import { octaveLineColor } from '../colors';
 
   const files = import.meta.glob<Song>(['../../songs/*.json', '!../../songs/index.json'], { import: 'default' });
   import type { LineWidths } from './lines';
 
-  let { songId, lineWidths, separateHands = false }: { songId: string; lineWidths: LineWidths; separateHands?: boolean } = $props();
+  let { songId, lineWidths, separateHands = false, inverted = false }: {
+    songId: string; lineWidths: LineWidths; separateHands?: boolean; inverted?: boolean;
+  } = $props();
 
   // Sizes follow Keyflow's min-box: a row is one box tall, a time frame is half a box
   // (one monospace glyph at 0.8 box), and an octave line takes an eighth of a box.
@@ -21,7 +23,10 @@
   let error = $state('');
   let width = $state(0);
   const systems = $derived(song ? layoutSystems(song.measures, Math.max(1, Math.floor((width - 16) / CELL)), separateHands) : []);
+  const marks = $derived(layoutMarks(systems));
   const HAND_NAMES: Record<string, string> = { right: 'Right hand', left: 'Left hand' };
+  /** Inverted order mirrors each stream vertically: octave 0 and its border go to the bottom. */
+  const flip = (y: number, height: number) => (inverted ? height - y : y);
 
   $effect(() => {
     const id = songId;
@@ -71,29 +76,53 @@
     {:else if song}
       <div class="sheet-streams" data-song={song.id} aria-label={`${song.title}, ${song.composer}`}>
         {#each systems as system, index}
-          <!-- One system: a single stream, or the right hand above the left hand. Paging never splits it. -->
-          <div class="sheet-stream-box" class:hands={system.hands.length > 1} data-system={index} use:must_view>
-          {#each system.hands as { hand, stream }}
+          {@const top = system.hands[0].stream}
+          {@const marked = marks[index]}
+          <!-- One system: markings, then a stream or a mega stream of both hands. Paging never splits it. -->
+          <div class="sheet-stream-box" class:hands={system.hands.length > 1} class:inverted data-system={index} use:must_view>
+          {#if marked.texts.length || marked.hairpins.length}
+            <svg class="sheet-marks" width={top.frames * CELL} height={ROW} viewBox={`0 0 ${top.frames * CELL} ${ROW}`}
+              role="img" aria-label="Markings">
+              {#each marked.texts as mark}
+                <text class="sheet-mark" x={mark.frame * CELL} y={ROW / 2}
+                  >{#each mark.parts as part, i}<tspan class="sheet-mark-part" data-kind={part.kind}>{i ? ' ' : ''}{part.text}</tspan>{/each}</text>
+              {/each}
+              {#each marked.hairpins as pin}
+                {@const x1 = pin.from * CELL + CELL / 4}
+                {@const x2 = Math.max(x1 + CELL, pin.to * CELL - CELL / 4)}
+                {@const wide = ROW * .3}
+                {@const narrow = pin.continued ? wide / 2 : 0}
+                {@const [a, b] = pin.kind === 'crescendo' ? [narrow, pin.open ? wide / 2 : wide] : [pin.continued ? wide / 2 : wide, pin.open ? wide / 2 : 0]}
+                <polyline class="hairpin" data-kind={pin.kind} fill="none"
+                  points={`${x1},${ROW / 2 - a} ${x2},${ROW / 2 - b}`} />
+                <polyline class="hairpin" data-kind={pin.kind} fill="none"
+                  points={`${x1},${ROW / 2 + a} ${x2},${ROW / 2 + b}`} />
+              {/each}
+            </svg>
+          {/if}
+          <div class="sheet-hands">
+          {#each inverted ? [...system.hands].reverse() : system.hands as { hand, stream }}
           {@const xs = offsets(stream)}
           {@const height = streamHeight(stream)}
           <svg class="sheet-stream" data-stream={index} data-hand={hand} width={stream.frames * CELL} height={height}
             viewBox={`0 0 ${stream.frames * CELL} ${height}`} role="img"
             aria-label={`${hand === 'both' ? '' : `${HAND_NAMES[hand]}, `}measures ${stream.measures[0].number} to ${stream.measures.at(-1)!.number}`}>
             <line class="octave-zero" data-line="0" style:stroke={octaveLineColor(0)} x1="0" x2={stream.frames * CELL}
-              y1={ORIGIN / 2} y2={ORIGIN / 2} stroke-width={ORIGIN} />
+              y1={flip(ORIGIN / 2, height)} y2={flip(ORIGIN / 2, height)} stroke-width={ORIGIN} />
             {#each stream.measures as measure, m}
               <g class="sheet-measure" data-measure={measure.number} transform={`translate(${xs[m]} 0)`}>
                 {#if m > 0}<line class="barline" x1="0" x2="0" y1="0" y2={height} />{/if}
                 {#each stream.lanes as _, octave}
                   {#if octave > 0}
                     {#each lineRuns(measure, octave) as [from, to]}
+                      {@const y = flip(blockTop(stream, octave) - GAP / 2, height)}
                       <line class="octave-line" data-octave={octave} data-line={octave} style:stroke={octaveLineColor(octave)} stroke-width={OCTAVE} x1={from * CELL + 1} x2={to * CELL - 1}
-                        y1={blockTop(stream, octave) - GAP / 2} y2={blockTop(stream, octave) - GAP / 2} />
+                        y1={y} y2={y} />
                     {/each}
                   {/if}
                 {/each}
                 {#each measure.notes as note}
-                  {@const y = blockTop(stream, note.octave) + note.lane * ROW + ROW / 2}
+                  {@const y = flip(blockTop(stream, note.octave) + note.lane * ROW + ROW / 2, height)}
                   {#if !note.tied}
                     <text class="sheet-note" data-midi={note.midi} style:fill={octaveLineColor(note.octave)} x={note.frame * CELL + CELL / 2} {y}>{note.digit}</text>
                   {/if}
@@ -106,6 +135,7 @@
             {/each}
           </svg>
           {/each}
+          </div>
           </div>
         {/each}
       </div>
@@ -136,14 +166,27 @@
   }
   .sheet-streams { display: flex; flex-direction: column; gap: calc(var(--min-box) / 2); padding-bottom: var(--min-box); }
   .sheet-stream { display: block; overflow: visible; }
-  /* Separate hands: the right-hand stream sits just above the left-hand one, joined by a bracket. */
-  .sheet-stream-box.hands {
-    display: flex;
-    flex-direction: column;
-    gap: calc(var(--min-box) / 4);
-    padding-left: calc(var(--min-box) / 8);
-    border-left: 2px solid var(--tertiary);
+  /* Separate hands: one mega stream, left hand above right hand, under a thick black bar
+     (inverted: right hand above left hand, bar at the bottom). */
+  .sheet-hands { display: flex; flex-direction: column; gap: calc(var(--min-box) / 4); width: fit-content; }
+  .sheet-stream-box.hands .sheet-hands { border-top: calc(var(--min-box) / 8) solid var(--primary); padding-top: calc(var(--min-box) / 8); }
+  .sheet-stream-box.hands.inverted .sheet-hands {
+    border-top: 0;
+    padding-top: 0;
+    border-bottom: calc(var(--min-box) / 8) solid var(--primary);
+    padding-bottom: calc(var(--min-box) / 8);
   }
+  .sheet-marks { display: block; overflow: visible; }
+  .sheet-mark {
+    fill: currentColor;
+    font-size: calc(var(--min-box) * .8);
+    font-family: var(--font-mono, ui-monospace, monospace);
+    dominant-baseline: central;
+    white-space: pre;
+  }
+  .sheet-mark-part[data-kind='dynamic'] { font-style: italic; font-weight: bold; }
+  .sheet-mark-part[data-kind='words'] { font-style: italic; }
+  .hairpin { stroke: currentColor; stroke-width: 1.5; }
   .octave-zero, .octave-line { stroke: currentColor; }
   .barline { stroke: var(--tertiary); stroke-width: 1; }
   .hold { stroke: currentColor; stroke-width: 1.5; }

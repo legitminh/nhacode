@@ -1,4 +1,13 @@
-import { expect, test, type Locator } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
+
+// Keyboard settings live in Settings → Keyboard; Escape steps out one menu level at a time.
+const keyboardMenu = (page: Page) =>
+  page.getByRole('region', { name: 'Settings', exact: true }).getByRole('button', { name: /Keyboard pane$/ }).click();
+async function closeSettings(page: Page) {
+  const settings = page.getByRole('button', { name: 'Settings', exact: true });
+  for (let i = 0; i < 4 && await settings.getAttribute('aria-expanded') === 'true'; i++) await page.keyboard.press('Escape');
+  await expect(settings).toHaveAttribute('aria-expanded', 'false');
+}
 
 // Observe the real Web Audio graph rather than substituting a mock instrument.
 test.beforeEach(async ({ page }) => {
@@ -44,8 +53,9 @@ test('all 96 Keyflow keys fit desktop and mobile viewports without scrolling', a
   for (const transposed of [false, true]) {
     if (transposed) {
       await page.getByRole('button', { name: /Settings/ }).click();
+      await keyboardMenu(page);
       await page.getByRole('button', { name: /Transpose display/ }).click();
-      await page.keyboard.press('Escape');
+      await closeSettings(page);
     }
     for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 844, height: 390 }, { width: 320, height: 568 }]) {
       await page.setViewportSize(viewport);
@@ -88,8 +98,9 @@ test('all 96 Keyflow keys fit desktop and mobile viewports without scrolling', a
   expect(await page.locator('.piano-cell button').first().evaluate((button) => getComputedStyle(button).fontSize)).toBe('48px');
   await page.screenshot({ path: 'test-results/nhacode-transposed.png' });
   await page.getByRole('button', { name: /Settings/ }).click();
+  await keyboardMenu(page);
   await page.getByRole('button', { name: /Transpose display/ }).click();
-  await page.keyboard.press('Escape');
+  await closeSettings(page);
   await page.screenshot({ path: 'test-results/nhacode-desktop.png' });
 });
 
@@ -102,12 +113,13 @@ test('settings transposes display while preserving pitches and releases active n
   await expect(page.locator('.sounding')).toHaveCount(0);
   await page.keyboard.up('Enter');
   await expect(page.getByRole('region', { name: 'Settings', exact: true })).toBeVisible();
+  await keyboardMenu(page);
   await page.getByRole('button', { name: /Transpose display/ }).click();
   await expect(page.locator('.piano-row')).toHaveCount(8);
   await expect(page.locator('.piano-row').first().locator('.piano-cell')).toHaveCount(12);
   expect(await page.locator('.piano-cell').evaluateAll((cells) => cells.map((cell) => Number((cell as HTMLElement).dataset.midi))))
     .toEqual(Array.from({ length: 96 }, (_, index) => 21 + index));
-  await page.keyboard.press('Escape');
+  await closeSettings(page);
   await expect(page.getByRole('region', { name: 'Settings', exact: true })).toHaveCount(0);
   const first = (await page.locator('[data-note="0-0"]').boundingBox())!;
   const next = (await page.locator('[data-note="0-1"]').boundingBox())!;
@@ -121,6 +133,7 @@ test('settings transposes display while preserving pitches and releases active n
   await expect.poll(() => page.evaluate(() => (window as any).__audioProbe.starts.length)).toBe(count + 1);
   expect(await page.evaluate(() => (window as any).__audioProbe.starts.at(-1).rate)).toBeCloseTo(2 ** (8 / 12));
   await settings.click();
+  await keyboardMenu(page);
   await page.getByRole('button', { name: /Transpose display/ }).click();
   await settings.click();
   await expect(page.locator('.piano-row')).toHaveCount(12);
@@ -131,6 +144,7 @@ test('settings transposes display while preserving pitches and releases active n
 test('octave endpoint inputs filter digits and apply the playable range on Enter or blur', async ({ page, browserName }) => {
   const activate = (locator: Locator) => browserName === 'webkit' ? locator.tap() : locator.click();
   await page.keyboard.press('Escape');
+  await keyboardMenu(page);
   const lower = page.getByRole('textbox', { name: 'First octave (included)' });
   const upper = page.getByRole('textbox', { name: 'Last octave (excluded)' });
   await expect(lower).toHaveValue('0');
@@ -149,6 +163,7 @@ test('octave endpoint inputs filter digits and apply the playable range on Enter
   expect(await page.evaluate(() => (window as any).__audioProbe.starts[0].rate)).toBeCloseTo(2 ** (8 / 12));
   await page.screenshot({ path: 'test-results/nhacode-range-6-8.png' });
   await page.keyboard.press('Escape');
+  if (!(await lower.isVisible())) await keyboardMenu(page);
   await lower.fill('a0b');
   await expect(lower).toHaveValue('0');
   await lower.press('Enter');
@@ -172,10 +187,11 @@ test('octave endpoint inputs filter digits and apply the playable range on Enter
 test('Keyflow instrument choices load violin, cello and flute with sustained playback', async ({ page }) => {
   for (const name of ['Violin', 'Cello', 'Flute', 'Grand piano']) {
     await page.keyboard.press('Escape');
+    await keyboardMenu(page);
     await page.getByRole('button', { name: /Instrument:/ }).click();
     await page.getByRole('region', { name: /Instrument:/ }).getByRole('button', { name: new RegExp(name) }).click();
     await expect(page.getByRole('main')).toHaveAttribute('data-audio-state', 'ready');
-    await page.keyboard.press('Escape');
+    await closeSettings(page);
     await page.locator('[data-note="3-0"] button').focus();
     await page.keyboard.down('Space');
     await expect(page.locator('.sounding')).toHaveCount(1);
@@ -256,6 +272,7 @@ test('selection policy blocks page and grid highlighting while settings text rem
   // settings selection so the next gesture isn't a drag of that existing range.
   await page.evaluate(() => window.getSelection()?.removeAllRanges());
   await page.keyboard.press('Escape');
+  await keyboardMenu(page);
   const text = (await page.getByText('Octave range', { exact: true }).boundingBox())!;
   await page.mouse.move(text.x + 1, text.y + text.height / 2);
   await page.mouse.down();
@@ -299,11 +316,15 @@ test('settings reveal Escape on hover and nested SubKeyframes return one level a
   await expect(shortcut).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(settings).toHaveAttribute('aria-expanded', 'true');
+  await keyboardMenu(page);
   await page.getByRole('button', { name: /Instrument:/ }).click();
   await expect(page.getByRole('region', { name: /Instrument:/ })).toBeVisible();
   await page.screenshot({ path: 'test-results/nhacode-settings.png' });
   await page.keyboard.press('Escape');
   await expect(page.getByRole('region', { name: /Instrument:/ })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Keyboard pane', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('region', { name: 'Keyboard pane', exact: true })).toHaveCount(0);
   await expect(settings).toHaveAttribute('aria-expanded', 'true');
   await page.keyboard.press('Escape');
   await expect(settings).toHaveAttribute('aria-expanded', 'false');

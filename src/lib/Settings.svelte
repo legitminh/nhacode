@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Button, SubKeyframe, interaction, lockstep_scrolling, min_box } from '@legitminh/keyflow';
+  import { Button, SubKeyframe, ThemeToggle, interaction, lockstep_scrolling, min_box } from '@legitminh/keyflow';
   import { instruments } from './audio/instruments';
   import { parseOctaveRange } from './notes';
   import { MARGIN_MAX, MARGIN_STEP, SIDES, type Margins, type Side } from './margins';
@@ -7,7 +7,7 @@
   import BoxInput from './BoxInput.svelte';
 
   let { open = $bindable(false), transposed, instrumentId, range, margins, lineWidths,
-    ontranspose, oninstrument, onrange, onmargin, online, keyBorder, onkeyborder, separateHands, onseparatehands }: {
+    ontranspose, oninstrument, onrange, onmargin, online, keyBorder, onkeyborder, separateHands, onseparatehands, inverted, oninverted }: {
     open?: boolean;
     transposed: boolean;
     instrumentId: string;
@@ -23,6 +23,8 @@
     onkeyborder: (value: number) => void;
     separateHands: boolean;
     onseparatehands: (value: boolean) => void;
+    inverted: boolean;
+    oninverted: (value: boolean) => void;
   } = $props();
   const sideName = (side: Side) => side[0].toUpperCase() + side.slice(1);
   const LINES = [['origin', 'Origin line'], ['octave', 'Octave lines']] as const;
@@ -84,50 +86,59 @@
       </svg>
     {/snippet}
     {#snippet children(menu)}
-      <SubKeyframe label={`Instrument: ${instrument.name}`} items={choices} class="instrument-select" />
-      <div class="octave-range">
-        <span>Octave range</span>
-        <div class="range-endpoints">
-          <span aria-hidden="true">[</span>
-          <input aria-label="First octave (included)" type="text" inputmode="numeric" pattern="[0-9]*"
-            enterkeyhint="done" autocomplete="off" spellcheck={false} value={lower} disabled={!menu.active}
-            use:interaction={{ disabled: !menu.active }}
-            oninput={(event) => digits(event, 'lower')} onkeydown={confirm} onblur={applyRange} />
-          <span aria-hidden="true">,</span>
-          <input aria-label="Last octave (excluded)" type="text" inputmode="numeric" pattern="[0-9]*"
-            enterkeyhint="done" autocomplete="off" spellcheck={false} value={upper} disabled={!menu.active}
-            use:interaction={{ disabled: !menu.active }}
-            oninput={(event) => digits(event, 'upper')} onkeydown={confirm} onblur={applyRange} />
-          <span aria-hidden="true">)</span>
-        </div>
-        {#if rangeError}<p class="range-error" role="alert">{rangeError}</p>{/if}
-      </div>
+      <!-- Settings for the keyboard pane -->
+      <SubKeyframe label="Keyboard pane" class="margin-menu pane-menu" onclose={applyRange}>
+        {#snippet children(kb)}
+          <SubKeyframe label={`Instrument: ${instrument.name}`} items={choices} class="instrument-select" />
+          <div class="octave-range">
+            <span>Octave range</span>
+            <div class="range-endpoints">
+              <span aria-hidden="true">[</span>
+              <input aria-label="First octave (included)" type="text" inputmode="numeric" pattern="[0-9]*"
+                enterkeyhint="done" autocomplete="off" spellcheck={false} value={lower} disabled={!kb.active}
+                use:interaction={{ disabled: !kb.active }}
+                oninput={(event) => digits(event, 'lower')} onkeydown={confirm} onblur={applyRange} />
+              <span aria-hidden="true">,</span>
+              <input aria-label="Last octave (excluded)" type="text" inputmode="numeric" pattern="[0-9]*"
+                enterkeyhint="done" autocomplete="off" spellcheck={false} value={upper} disabled={!kb.active}
+                use:interaction={{ disabled: !kb.active }}
+                oninput={(event) => digits(event, 'upper')} onkeydown={confirm} onblur={applyRange} />
+              <span aria-hidden="true">)</span>
+            </div>
+            {#if rangeError}<p class="range-error" role="alert">{rangeError}</p>{/if}
+          </div>
+          <Button on_close={() => ontranspose(!transposed)}>Transpose display: {transposed ? 'On' : 'Off'}</Button>
+          <BoxInput label="Key border" value={keyBorder} min={0} max={KEY_BORDER_MAX} step={0.01}
+            disabled={!kb.active} onchange={onkeyborder} />
+          <SubKeyframe label="Margins" class="margin-menu">
+            {#snippet children(sub)}
+              {#each SIDES as side}
+                <BoxInput label={sideName(side)} value={margins[side]} min={0} max={MARGIN_MAX} step={MARGIN_STEP}
+                  disabled={!sub.active} onchange={(value) => onmargin(side, value)} />
+              {/each}
+            {/snippet}
+          </SubKeyframe>
+        {/snippet}
+      </SubKeyframe>
+      <!-- Settings for the sheet pane -->
+      <SubKeyframe label="Sheet pane" class="margin-menu pane-menu">
+        {#snippet children(sh)}
+          <Button on_close={() => onseparatehands(!separateHands)}>Hands: {separateHands ? 'Separate' : 'Together'}</Button>
+          <Button on_close={() => oninverted(!inverted)}>Order: {inverted ? 'Inverted' : 'Normal'}</Button>
+          <Button on_close={() => lockstep_scrolling.set(!lockstep_scrolling.enabled)}
+            >Lockstep scrolling: {lockstep_scrolling.enabled ? 'On' : 'Off'}</Button>
+          {#each LINES as [line, name]}
+            <BoxInput label={name} value={lineWidths[line]} min={LINE_MIN} max={LINE_MAX} step={LINE_STEP}
+              disabled={!sh.active} onchange={(value) => online(line, value)} />
+          {/each}
+        {/snippet}
+      </SubKeyframe>
+      <!-- Settings for the whole app -->
       <div class="min-box-setting">
         <span>Min box: {Math.round(min_box.value)}px</span>
         <Button on_close={() => zoom(1)} disabled={min_box.value >= 160}>Increase</Button>
         <Button on_close={() => zoom(-1)} disabled={min_box.value <= 12}>Decrease</Button>
       </div>
-      <SubKeyframe label="Keyboard layout" class="margin-menu">
-        {#snippet children(sub)}
-          <BoxInput label="Key border" value={keyBorder} min={0} max={KEY_BORDER_MAX} step={0.01}
-            disabled={!sub.active} onchange={onkeyborder} />
-          {#each SIDES as side}
-            <BoxInput label={sideName(side)} value={margins[side]} min={0} max={MARGIN_MAX} step={MARGIN_STEP}
-              disabled={!sub.active} onchange={(value) => onmargin(side, value)} />
-          {/each}
-        {/snippet}
-      </SubKeyframe>
-      <SubKeyframe label="Sheet lines" class="margin-menu">
-        {#snippet children(sub)}
-          {#each LINES as [line, name]}
-            <BoxInput label={name} value={lineWidths[line]} min={LINE_MIN} max={LINE_MAX} step={LINE_STEP}
-              disabled={!sub.active} onchange={(value) => online(line, value)} />
-          {/each}
-        {/snippet}
-      </SubKeyframe>
-      <Button on_close={() => onseparatehands(!separateHands)}>Sheet hands: {separateHands ? 'Separate' : 'Together'}</Button>
-      <Button on_close={() => ontranspose(!transposed)}>Transpose display: {transposed ? 'On' : 'Off'}</Button>
-      <Button on_close={() => lockstep_scrolling.set(!lockstep_scrolling.enabled)}
-        >Lockstep scrolling: {lockstep_scrolling.enabled ? 'On' : 'Off'}</Button>
+      <div class="theme-setting"><span>Theme:</span> <ThemeToggle /></div>
     {/snippet}
   </SubKeyframe>

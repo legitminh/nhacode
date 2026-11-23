@@ -255,3 +255,6 @@ main .piano-matrix.keyflow-keyboard {
 }
 
 .settings-menu > .subkeyframe-trigger svg, .view-toggle svg { width: var(--text-size); height: var(--text-size); }
+
+.theme-setting { display: flex; align-items: center; gap: .5rem; margin-top: .25rem; }
+.theme-setting button { flex: 1; border: 1px solid currentColor; padding: 0 calc(var(--min-box) / 4); }

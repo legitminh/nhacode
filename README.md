@@ -28,12 +28,15 @@ Requires Node 22.18+ (Node 24 recommended). Open the local URL printed by Vite.
 - Every font size follows Keyflow's `--min-box` (glyphs at 0.8 box, one box per
   line). **Settings → Min box** has Increase and Decrease buttons that scale it by
   1.25, like Keyflow's zoom, between 12 and 160 px; Keyflow remembers the value.
-- **Settings → Keyboard layout** has number fields, in min-box units, for the key
-  border width (0–0.25, default 0.04) and the top, right, bottom and left margins
-  (0–10, step 0.25). Keys shrink to fit.
 - The settings icon at the top left opens with a click or **Escape**; its shortcut
-  appears on hover or keyboard focus. It contains instrument, octave-range and
-  transpose controls, implemented with Keyflow's `SubKeyframe` and interaction action.
+  appears on hover or keyboard focus. Settings has a **Keyboard pane** submenu
+  (instrument, octave range, transpose, key border width and margins), a **Sheet
+  pane** submenu (hands, order, lockstep scrolling, line widths), and the shared
+  min-box and Keyflow **Theme** (light, dark, sepia) controls, all built with
+  Keyflow's `SubKeyframe`, `Button`, `ThemeToggle` and interaction action.
+- **Keyboard pane → Key border** and **Margins** are number fields in min-box units:
+  border width 0–0.25 (default 0.04), margins 0–10 in steps of 0.25. Keys shrink
+  to fit.
 - In the default
   layout, each octave runs down a column. Transposed, the twelve notes run left
   to right, and higher octaves follow in rows below. The pitches stay unchanged.
@@ -59,9 +62,10 @@ Requires Node 22.18+ (Node 24 recommended). Open the local URL printed by Vite.
 The top bar has two Keyflow toggles: **sheet** (shortcut S) and the keyboard icon
 (shortcut K). Either screen can be on or off; when both are on they sit side by
 side. The choice is remembered per browser. While the sheet is on, the **Song**
-button (M) sits on the same toolbar line and opens the song screen: type to
-search titles and composers (Enter picks the first match, Escape leaves the
-field), and toggle the **classical**, **western**, **eastern**, **electronic** and
+button (M) sits on the same toolbar line and opens the song screen. Its search
+box is Keyflow's `TextBox`: it opens ready for typing, Enter picks the first match,
+Escape stops typing so the screen's shortcuts work, and **/** starts typing again.
+Search covers titles and composers; toggle the **classical**, **western**, **eastern**, **electronic** and
 **orchestral** tags to filter. Selected tags must all match; classical covers
 both western and eastern classical music. Each result has a Keyflow shortcut.
 
@@ -81,13 +85,19 @@ The sheet has no stave; it only shows which key is pressed when:
   the line above octave n is n. Digits and hold dashes take their octave's color
   too, so each octave block matches the line above it.
 - Measures wrap to a new stream at the screen edge.
-- **Settings → Sheet hands** switches between one stream per line (Together) and
-  a right-hand stream above a left-hand stream (Separate), joined by a bracket and
-  wrapped at the same measures. Hands come from the score: a piano grand staff's
+- Score markings sit on a row above each line: time signature and tempo when they
+  change, dynamics (bold italic), short directions such as *dim.* or *a tempo*, and
+  crescendo/diminuendo hairpins (which continue onto the next line when needed).
+- **Sheet pane → Hands** switches between one stream per line (Together) and one
+  mega stream per line (Separate): the left-hand stream above the right-hand
+  stream under a thick bar, both wrapped at the same measures. Hands come from the score: a piano grand staff's
   lower staff is the left hand; other staves count as left hand when in bass clef.
-- **Settings → Sheet lines** has number fields for the origin line and octave line
+- **Sheet pane → Order: Inverted** flips each stream vertically: octave 0 and its
+  thick line go to the bottom, higher octaves sit above, and in a mega stream the
+  left hand and the thick bar go to the bottom.
+- **Sheet pane → Origin line / Octave lines** are number fields for the origin line and octave line
   stroke widths, in min-box units (0.01–0.25; defaults 0.06 and 0.03).
-- The sheet sits in Keyflow's `Document`. **Settings → Lockstep scrolling** switches
+- The sheet sits in Keyflow's `Document`. **Sheet pane → Lockstep scrolling** switches
   between native scrolling and Keyflow's lockstep paging (wheel, swipe, or the ↓/↑
   buttons move one page, landing on a stream's top). Keyflow remembers the mode.
 

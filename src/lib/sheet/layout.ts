@@ -1,4 +1,4 @@
-import type { SongMeasure } from './types';
+import type { SongMark, SongMeasure } from './types';
 
 /** A0 is the lowest key; octaves start at A, matching the piano grid. */
 const A0 = 21;
@@ -29,6 +29,8 @@ export type MeasureLayout = {
    * or -1 when nothing sounds. Octave line o is drawn over frame f when reach[f] >= o.
    */
   reach: number[];
+  /** Score markings, placed on the frame where they start. */
+  marks: (SongMark & { frame: number })[];
 };
 
 export type StreamLayout = {
@@ -78,7 +80,8 @@ export function layoutMeasure(measure: SongMeasure): MeasureLayout {
   const top = placed.reduce((max, note) => Math.max(max, note.octave), 0);
   const lanes = Array.from({ length: top + 1 }, () => 0);
   for (const note of placed) lanes[note.octave] = Math.max(lanes[note.octave], note.lane + 1);
-  return { number: measure.number, frames, lanes, notes: placed, reach };
+  const marks = (measure.marks ?? []).map((mark) => ({ ...mark, frame: Math.min(frames - 1, Math.floor(mark.start / resolution)) }));
+  return { number: measure.number, frames, lanes, notes: placed, reach, marks };
 }
 
 /** Shares lane counts across the measures of one stream. */
@@ -110,7 +113,7 @@ export function layoutStreams(measures: MeasureLayout[], width: number): StreamL
 }
 
 export type Hand = 'both' | 'right' | 'left';
-/** One line of the sheet: a single stream, or the right-hand stream above the left-hand one. */
+/** One line of the sheet: a single stream, or a mega stream of the left hand above the right hand. */
 export type SystemLayout = { hands: { hand: Hand; stream: StreamLayout }[] };
 
 /**
@@ -130,6 +133,42 @@ export function layoutSystems(measures: SongMeasure[], width: number, separate: 
     const count = rightStream.measures.length;
     const leftStream = stream(left.slice(index, index + count));
     index += count;
-    return { hands: [{ hand: 'right', stream: rightStream }, { hand: 'left', stream: leftStream }] };
+    return { hands: [{ hand: 'left', stream: leftStream }, { hand: 'right', stream: rightStream }] };
+  });
+}
+
+export type MarkText = { frame: number; parts: { kind: SongMark['kind']; text: string }[] };
+export type Hairpin = { kind: 'crescendo' | 'diminuendo'; from: number; to: number; continued: boolean; open: boolean };
+/** Markings for one system, in stream frames: texts plus hairpins (which may continue across systems). */
+export type SystemMarks = { texts: MarkText[]; hairpins: Hairpin[] };
+
+/** Places every system's markings; a hairpin left open at a line end continues on the next line. */
+export function layoutMarks(systems: SystemLayout[]): SystemMarks[] {
+  let open: { kind: Hairpin['kind']; from: number; continued: boolean } | undefined;
+  return systems.map((system) => {
+    const stream = system.hands[0].stream;
+    const texts: MarkText[] = [];
+    const hairpins: Hairpin[] = [];
+    if (open) open = { ...open, from: 0, continued: true };
+    let offset = 0;
+    for (const measure of stream.measures) {
+      for (const mark of measure.marks) {
+        const frame = offset + mark.frame;
+        if (mark.kind !== 'wedge') {
+          const previous = texts.at(-1);
+          if (previous && previous.frame === frame) previous.parts.push({ kind: mark.kind, text: mark.text });
+          else texts.push({ frame, parts: [{ kind: mark.kind, text: mark.text }] });
+        } else if (mark.text === 'stop') {
+          if (open) hairpins.push({ kind: open.kind, from: open.from, to: frame + 1, continued: open.continued, open: false });
+          open = undefined;
+        } else {
+          if (open) hairpins.push({ kind: open.kind, from: open.from, to: frame, continued: open.continued, open: false });
+          open = { kind: mark.text as Hairpin['kind'], from: frame, continued: false };
+        }
+      }
+      offset += measure.frames;
+    }
+    if (open) hairpins.push({ kind: open.kind, from: open.from, to: stream.frames, continued: open.continued, open: true });
+    return { texts, hairpins };
   });
 }

@@ -1,4 +1,15 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+
+/** Opens Settings → Keyboard or Settings → Sheet. */
+async function paneMenu(page: Page, pane: 'Keyboard' | 'Sheet') {
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.getByRole('region', { name: 'Settings', exact: true }).getByRole('button', { name: new RegExp(`${pane} pane$`) }).click();
+}
+async function closeSettings(page: Page) {
+  const settings = page.getByRole('button', { name: 'Settings', exact: true });
+  for (let i = 0; i < 5 && await settings.getAttribute('aria-expanded') === 'true'; i++) await page.keyboard.press('Escape');
+  await expect(settings).toHaveAttribute('aria-expanded', 'false');
+}
 
 test.beforeEach(async ({ page }) => {
   await page.goto('./');
@@ -86,8 +97,8 @@ test('song menu sits on the toolbar and keyboard margins are min-box number fiel
   const settings = (await page.getByRole('button', { name: /Settings/ }).boundingBox())!;
   expect(Math.abs(song.y + song.height / 2 - (settings.y + settings.height / 2))).toBeLessThan(4);
 
-  await page.getByRole('button', { name: /Settings/ }).click();
-  await page.getByRole('button', { name: /Keyboard layout/ }).click();
+  await paneMenu(page, 'Keyboard');
+  await page.getByRole('button', { name: /Margins/ }).click();
   const left = page.getByRole('spinbutton', { name: 'Left' });
   await left.fill('0.5'); // half a min-box: 24px at the default 48px
   await left.press('Enter');
@@ -111,10 +122,10 @@ test('Settings switches the sheet between native and Keyflow lockstep scrolling'
   await expect(page.locator('.sheet-note').first()).toBeVisible();
   const world = page.locator('.sheet-scroll .world');
   await expect(world).not.toHaveAttribute('style', /translateY/);
-  await page.getByRole('button', { name: /Settings/ }).click();
+  await paneMenu(page, 'Sheet');
   await page.getByRole('button', { name: /Lockstep scrolling: Off/ }).click();
   await expect(page.getByRole('button', { name: /Lockstep scrolling: On/ })).toBeVisible();
-  await page.keyboard.press('Escape');
+  await closeSettings(page);
   await page.getByRole('button', { name: '↓' }).click();
   await expect(world).toHaveAttribute('style', /translateY\(-[1-9]/);
   // Paging lands on the top of a stream rather than cutting one in half.
@@ -132,9 +143,12 @@ test('sheet line widths are adjustable and every setting survives closing the ap
   await page.getByRole('button', { name: /^Sheet/ }).click();
   await page.getByRole('button', { name: /Settings/ }).click();
   await page.getByRole('button', { name: /Decrease/ }).click();
-  await page.getByRole('button', { name: /Lockstep scrolling: Off/ }).click();
+  await closeSettings(page);
+  await paneMenu(page, 'Keyboard');
   await page.getByRole('button', { name: /Transpose display: Off/ }).click();
-  await page.getByRole('button', { name: /Sheet lines/ }).click();
+  await closeSettings(page);
+  await paneMenu(page, 'Sheet');
+  await page.getByRole('button', { name: /Lockstep scrolling: Off/ }).click();
   await page.getByRole('spinbutton', { name: 'Origin line' }).fill('0.1');
   await page.getByRole('spinbutton', { name: 'Octave lines' }).fill('0.05');
   await page.getByRole('spinbutton', { name: 'Octave lines' }).blur();
@@ -167,12 +181,10 @@ test('key text and borders take their octave color and a min-box border width fr
   expect(await page.locator('[data-note="0-5"] .keyflow-key').evaluate((key) => getComputedStyle(key).color)).toBe('rgb(182, 32, 32)');
   expect((await border('0-5')).color).toBe('rgb(182, 32, 32)');
   expect((await border('1-0')).color).not.toBe((await border('0-0')).color);
-  await page.getByRole('button', { name: /Settings/ }).click();
-  await page.getByRole('button', { name: /Keyboard layout/ }).click();
+  await paneMenu(page, 'Keyboard');
   await page.getByRole('spinbutton', { name: 'Key border' }).fill('0.1');
-  await page.keyboard.press('Escape');
-  await page.keyboard.press('Escape');
-  await page.keyboard.press('Escape');
+  await page.getByRole('spinbutton', { name: 'Key border' }).blur();
+  await closeSettings(page);
   // 0.1 × 48px = 4.8px; browsers snap border widths down to whole device pixels.
   await expect.poll(async () => (await border("0-0")).width).toBeGreaterThanOrEqual(4);
 });
@@ -180,7 +192,13 @@ test('key text and borders take their octave color and a min-box border width fr
 test('the song screen searches by name and filters by tags, with Keyflow shortcuts', async ({ page }) => {
   await page.getByRole('button', { name: /^Sheet/ }).click();
   await page.keyboard.press('m');
-  const search = page.getByRole('searchbox', { name: 'Search songs' });
+  // The search box is Keyflow's TextBox: it starts in typing mode, Escape leaves it and / re-enters it.
+  const search = page.getByRole('textbox', { name: 'Search songs' });
+  await expect(search).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(search).toBeHidden();
+  await expect(page.locator('.song-screen')).toBeVisible();
+  await page.keyboard.press('/');
   await expect(search).toBeFocused();
   const results = page.getByRole('list', { name: 'Songs' }).getByRole('listitem');
   const total = await results.count();
@@ -189,6 +207,7 @@ test('the song screen searches by name and filters by tags, with Keyflow shortcu
   await search.fill('jasmine');
   await expect(results).toHaveCount(1);
   await search.fill('');
+  await page.keyboard.press('Escape'); // leave typing so the screen's controls respond
   await page.getByRole('group', { name: 'Tags' }).getByRole('button', { name: /eastern/ }).click();
   const eastern = await page.locator('.song-results li').evaluateAll((items) => items.map((item) => item.getAttribute('data-song')));
   expect(eastern).toEqual(expect.arrayContaining(['jasmine-flower', 'sakura', 'arirang']));
@@ -199,6 +218,7 @@ test('the song screen searches by name and filters by tags, with Keyflow shortcu
   const classical = await page.locator('.song-results li').evaluateAll((items) => items.map((item) => item.getAttribute('data-song')));
   expect(classical).toEqual(expect.arrayContaining(['fur-elise', 'jasmine-flower']));
 
+  await page.keyboard.press('/');
   await search.fill('sakura');
   await search.press('Enter'); // picks the first match and closes the screen
   await expect(page.locator('.song-screen')).toHaveCount(0);
@@ -209,21 +229,59 @@ test('the song screen searches by name and filters by tags, with Keyflow shortcu
 test('Settings can show the left and right hands as separate streams', async ({ page }) => {
   await page.getByRole('button', { name: /^Sheet/ }).click();
   await expect(page.locator('.sheet-stream').first()).toHaveAttribute('data-hand', 'both');
-  await page.getByRole('button', { name: /Settings/ }).click();
-  await page.getByRole('button', { name: /Sheet hands: Together/ }).click();
-  await page.keyboard.press('Escape');
+  await paneMenu(page, 'Sheet');
+  await page.getByRole('button', { name: /Hands: Together/ }).click();
+  await closeSettings(page);
   const system = page.locator('.sheet-stream-box').first();
   await expect(system.locator('.sheet-stream')).toHaveCount(2);
-  const [right, left] = await system.locator('.sheet-stream').evaluateAll((streams) => streams.map((stream) => ({
+  const [left, right] = await system.locator('.sheet-stream').evaluateAll((streams) => streams.map((stream) => ({
     hand: stream.getAttribute('data-hand'), top: stream.getBoundingClientRect().top,
     midis: [...stream.querySelectorAll('.sheet-note')].map((note) => Number(note.getAttribute('data-midi'))),
   })));
-  expect([right.hand, left.hand]).toEqual(['right', 'left']);
-  expect(right.top).toBeLessThan(left.top);
+  // One mega stream: left hand on top, right hand below, under a thick bar.
+  expect([left.hand, right.hand]).toEqual(['left', 'right']);
+  expect(left.top).toBeLessThan(right.top);
+  expect(await system.locator('.sheet-hands').evaluate((hands) => parseFloat(getComputedStyle(hands).borderTopWidth))).toBeGreaterThan(4);
   // Für Elise opens with the right hand's E5–D♯5; its left-hand A2 arpeggio comes after.
   expect(right.midis).toEqual(expect.arrayContaining([76, 75]));
   expect(right.midis).not.toContain(45);
   expect(left.midis).toContain(45);
   await page.reload();
   await expect(page.locator('.sheet-stream-box').first().locator('.sheet-stream')).toHaveCount(2);
+});
+
+test('score markings sit above the first stream, and order inversion flips each stream', async ({ page }) => {
+  await page.getByRole('button', { name: /^Sheet/ }).click();
+  const system = page.locator('.sheet-stream-box').first();
+  // Für Elise opens in 3/8 at ♩=100, piano.
+  await expect(system.locator('.sheet-mark').first()).toHaveText('3/8 ♩=100 p');
+  await expect(page.locator('.hairpin[data-kind="crescendo"]').first()).toBeAttached();
+  const marks = (await system.locator('.sheet-marks').boundingBox())!;
+  const stream = (await system.locator('.sheet-stream').boundingBox())!;
+  expect(marks.y + marks.height).toBeLessThanOrEqual(stream.y + 1);
+
+  const origin = () => system.locator('.octave-zero').evaluate((line) => Number(line.getAttribute('y1')));
+  expect(await origin()).toBeLessThan(10);
+  await paneMenu(page, 'Sheet');
+  await page.getByRole('button', { name: /Order: Normal/ }).click();
+  await page.getByRole('button', { name: /Hands: Together/ }).click();
+  await closeSettings(page);
+  // Inverted: octave 0's thick line is at the bottom, the right hand is on top and the thick bar is below.
+  const height = Number(await system.locator('.sheet-stream').first().getAttribute('height'));
+  expect(await system.locator('.sheet-stream').first().locator('.octave-zero').evaluate((line) => Number(line.getAttribute('y1')))).toBeGreaterThan(height - 10);
+  expect(await system.locator('.sheet-stream').evaluateAll((streams) => streams.map((s) => s.getAttribute('data-hand')))).toEqual(['right', 'left']);
+  const bar = await system.locator('.sheet-hands').evaluate((hands) => ({
+    top: parseFloat(getComputedStyle(hands).borderTopWidth), bottom: parseFloat(getComputedStyle(hands).borderBottomWidth) }));
+  expect(bar.top).toBe(0);
+  expect(bar.bottom).toBeGreaterThan(4);
+});
+
+test('Settings offers Keyflow themes', async ({ page }) => {
+  const background = () => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--background').trim());
+  expect(await background()).toBe('#ffffff');
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.locator('.theme-setting button').click();
+  await expect.poll(background).toBe('#000000');
+  await page.reload();
+  await expect.poll(background).toBe('#000000');
 });

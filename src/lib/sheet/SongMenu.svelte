@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Button, SubKeyframe, interaction, type SubKeyframeContext } from '@legitminh/keyflow';
+  import { Button, SubKeyframe, TextBox, type SubKeyframeContext } from '@legitminh/keyflow';
   import { TAGS, findSongs, songs, type Tag } from './songs';
 
   let { songId, disabled = false, onselect }: {
@@ -9,7 +9,7 @@
   } = $props();
   let query = $state('');
   let tags = $state(new Set<Tag>());
-  let search = $state<HTMLInputElement>();
+  let search = $state<TextBox>();
   const selected = $derived(songs.find((entry) => entry.id === songId));
   const results = $derived(findSongs(songs, query, tags));
 
@@ -24,28 +24,24 @@
     menu.exit();
   }
 
-  function searchKeys(event: KeyboardEvent, menu: SubKeyframeContext) {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      search?.blur();
-    } else if (event.key === 'Enter' && results.length) {
-      event.preventDefault();
-      choose(results[0].id, menu);
-    }
-  }
+  let screen = $state<SubKeyframe>();
+  /** Enter in the search box picks the first match instead of adding a line. */
+  $effect(() => {
+    if (!query.includes('\n')) return;
+    query = query.replace(/\n/g, '');
+    const first = results[0];
+    if (first) void search?.exit().then(() => { onselect(first.id); screen?.exit(); });
+  });
 </script>
 
 <!-- The song selection screen: search by name and filter by tags. Keyflow owns its frame and shortcuts. -->
-<SubKeyframe label={`Song: ${selected?.title ?? 'None'}`} enterTrigger="m" {disabled} class="song-select"
-  onopen={() => { requestAnimationFrame(() => search?.focus()); }}>
+<SubKeyframe bind:this={screen} label={`Song: ${selected?.title ?? 'None'}`} enterTrigger="m" {disabled} class="song-select"
+  onopen={() => { requestAnimationFrame(() => void search?.enter()); }}>
   {#snippet children(menu)}
     <div class="song-screen">
-      <label class="song-search">
-        <span class="visually-hidden">Search songs</span>
-        <input bind:this={search} type="search" placeholder="Search songs" autocomplete="off" spellcheck={false}
-          enterkeyhint="go" bind:value={query} disabled={!menu.active} use:interaction={{ disabled: !menu.active }}
-          onkeydown={(event) => searchKeys(event, menu)} />
-      </label>
+      <!-- Keyflow's TextBox: / starts typing, Escape stops, and the screen's shortcuts work again. -->
+      <TextBox bind:this={search} bind:value={query} label="Search songs" placeholder="Search songs (/)" rows={1}
+        wrap="off" enterTrigger="/" class="song-search" />
       <div class="song-tags" role="group" aria-label="Tags">
         {#each TAGS as tag}
           <div class="song-tag" class:on={tags.has(tag)} data-tag={tag}>

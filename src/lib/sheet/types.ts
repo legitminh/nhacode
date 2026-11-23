@@ -10,6 +10,9 @@ export type SongNote = {
   hand?: 'left';
 };
 
+/** A score marking: time signature, tempo, dynamic, hairpin (crescendo/diminuendo/stop) or a short direction. */
+export type SongMark = { start: number; kind: 'time' | 'tempo' | 'dynamic' | 'wedge' | 'words'; text: string };
+
 export type SongMeasure = {
   number: string;
   /** Length of the measure in ticks. */
@@ -17,6 +20,7 @@ export type SongMeasure = {
   /** Smallest note or rest unit in the measure, in ticks. */
   resolution: number;
   notes: SongNote[];
+  marks?: SongMark[];
 };
 
 /** The simplified, staff-free form of a score: which key is pressed when. */

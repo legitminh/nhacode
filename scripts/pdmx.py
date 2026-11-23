@@ -218,6 +218,50 @@ def strip_namespaces(root):
     return root
 
 
+BEAT_SYMBOLS = {'whole': '𝅝', 'half': '𝅗𝅥', 'quarter': '♩', 'eighth': '♪', '16th': '𝅘𝅥𝅯'}
+DYNAMICS = {'p', 'pp', 'ppp', 'pppp', 'mp', 'mf', 'f', 'ff', 'fff', 'ffff', 'sf', 'sfz', 'sffz', 'sfp', 'fp', 'fz', 'rf', 'rfz', 'pf'}
+
+
+# Performance directions worth keeping; instrument names, fingerings and the like are dropped.
+DIRECTION_WORDS = re.compile(
+    r'\b(cresc|decresc|dim|rit|rall|accel|a tempo|tempo|dolce|legato|stacc|espress|cantabile|sempre|poco|pi[uù]|meno|molto|'
+    r'simile|adagio|andante|allegr|presto|largo|lento|moderato|vivace|grave|maestoso|moto|sostenuto|rubato|smorz|morendo|'
+    r'calando|marcato|agitato|animato|leggier|pesante|tranquill|fine|d\.c\.|d\.s\.|coda|c[ée]dez|retenu|lent|vif|mod[ée]r[ée]|'
+    r'tr[èe]s|anim[ée]|cantando|perdendo|ritenuto|stringendo|subito|sotto voce|mezza voce|con pedale)', re.IGNORECASE)
+
+
+def add_mark(measure, start, kind, text):
+    """Score markings, deduplicated across parts and staves."""
+    mark = {'start': start, 'kind': kind, 'text': text}
+    if mark not in measure['marks']:
+        measure['marks'].append(mark)
+
+
+def direction_marks(direction):
+    """Concise (kind, text) markings from one <direction>: tempo, dynamics, hairpins and short words."""
+    marks = []
+    has_metronome = False
+    for kind in direction.findall('direction-type'):
+        for item in kind:
+            if item.tag == 'metronome' and item.findtext('per-minute'):
+                beat = BEAT_SYMBOLS.get(item.findtext('beat-unit', 'quarter'), '♩') + ('.' if item.find('beat-unit-dot') is not None else '')
+                marks.append(('tempo', f"{beat}={item.findtext('per-minute').strip()}"))
+                has_metronome = True
+            elif item.tag == 'dynamics':
+                for level in item:
+                    name = level.text.strip() if level.tag == 'other-dynamics' and level.text else level.tag
+                    if name in DYNAMICS:
+                        marks.append(('dynamic', name))
+            elif item.tag == 'wedge' and item.get('type') in ('crescendo', 'diminuendo', 'stop'):
+                marks.append(('wedge', item.get('type')))
+            elif item.tag == 'words' and item.text and len(item.text.strip()) <= 24 and DIRECTION_WORDS.search(item.text):
+                marks.append(('words', ' '.join(item.text.split())))
+    sound = direction.find('sound')
+    if not has_metronome and sound is not None and sound.get('tempo'):
+        marks.append(('sound-tempo', f"♩={round(float(sound.get('tempo')))}"))  # playback-only tempo
+    return marks
+
+
 def parse_score(xml):
     """Return (divisions_lcm, measures) with every part merged by measure index."""
     root = strip_namespaces(ET.fromstring(xml))
@@ -235,7 +279,7 @@ def parse_score(xml):
         open_ties = {}  # (staff, voice, midi) -> note dict, awaiting a tie stop
         for index, measure in enumerate(part.findall('measure')):
             if index == len(measures):
-                measures.append({'number': measure.get('number', str(index + 1)), 'duration': 0, 'notes': [], 'spans': []})
+                measures.append({'number': measure.get('number', str(index + 1)), 'duration': 0, 'notes': [], 'spans': [], 'marks': []})
             out = measures[index]
             pos = last_start = end = 0
             for element in measure:
@@ -246,6 +290,14 @@ def parse_score(xml):
                         staves = int(element.findtext('staves'))
                     for clef in element.findall('clef'):
                         clefs[clef.get('number', '1')] = clef.findtext('sign', 'G')
+                    time_signature = element.find('time')
+                    if time_signature is not None and time_signature.findtext('beats'):
+                        add_mark(out, pos, 'time', f"{time_signature.findtext('beats')}/{time_signature.findtext('beat-type')}")
+                if element.tag == 'direction':
+                    offset = int(float(element.findtext('offset', '0'))) * (tpq // divisions)
+                    for mark in direction_marks(element):
+                        add_mark(out, max(0, pos + offset), *mark)
+                    continue
                 scale = tpq // divisions
                 if element.tag in ('backup', 'forward'):
                     amount = int(float(element.findtext('duration', '0'))) * scale
@@ -296,6 +348,7 @@ def simplify(song_id, title):
     tags = json.loads(saved_tags) if saved_tags and saved_tags != '[]' else tags_for(json.loads(metadata))
     tpq, measures = parse_score(musicxml_from_mxl(data))
     out_measures = []
+    last = {'time': None, 'tempo': None}  # only show a time signature or tempo when it changes
     for measure in measures:
         values = [measure['duration']]
         for start, duration in measure['spans']:
@@ -309,7 +362,22 @@ def simplify(song_id, title):
             if note['hand'] == 'left':
                 item['hand'] = 'left'
             notes.append(item)
-        out_measures.append({'number': measure['number'], 'duration': measure['duration'], 'resolution': resolution, 'notes': notes})
+        item = {'number': measure['number'], 'duration': measure['duration'], 'resolution': resolution, 'notes': notes}
+        marks = []
+        for mark in sorted(measure['marks'], key=lambda m: (m['start'], ['time', 'tempo', 'sound-tempo', 'words', 'dynamic', 'wedge'].index(m['kind']))):
+            if mark['kind'] == 'sound-tempo':
+                # Playback tempos (often per-measure ramps) only stand in when the score has no tempo mark yet.
+                if last['tempo'] is not None:
+                    continue
+                mark = {**mark, 'kind': 'tempo'}
+            if mark['kind'] in last:
+                if mark['text'] == last[mark['kind']]:
+                    continue
+                last[mark['kind']] = mark['text']
+            marks.append({**mark, 'start': min(mark['start'], max(0, measure['duration'] - 1))})
+        if marks:
+            item['marks'] = marks
+        out_measures.append(item)
 
     song = {
         'id': song_id, 'title': title or source_title, 'composer': composer if composer and composer != 'NA' else '',

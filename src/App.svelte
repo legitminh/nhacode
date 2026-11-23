@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import { Keyflow, KeyboardDisplay, interaction, lockstep_scrolling, min_box, type InteractionEvent } from '@legitminh/keyflow';
+  import { Keyflow, KeyboardDisplay, interaction, lockstep_scrolling, min_box, state_theme, type InteractionEvent } from '@legitminh/keyflow';
   import PianoKey from './lib/PianoKey.svelte';
   import Settings from './lib/Settings.svelte';
   import ViewToggle from './lib/ViewToggle.svelte';
@@ -35,6 +35,7 @@
   let lineWidths = $state(loadLineWidths());
   let keyBorder = $state(loadKeyBorder());
   let separateHands = $state(readPref('sheet:separate-hands', false, isBoolean));
+  let inverted = $state(readPref('sheet:inverted', false, isBoolean));
   let songId = $state(readPref('song', (songs.find((song) => song.id === 'fur-elise') ?? songs[0])?.id ?? '', (value): value is string => songs.some((song) => song.id === value)));
   let generation = 0;
   const noteRows = $derived(NOTE_NAMES.map((_, row) => octaves.map((octave) => noteAt(octave, row))));
@@ -46,6 +47,7 @@
   // Keyflow keeps these in sessionStorage; mirror them so they survive closing the app.
   $effect(() => saveKeyflowPreference('min_box', String(min_box.value)));
   $effect(() => saveKeyflowPreference('lockstep_scrolling', String(lockstep_scrolling.enabled)));
+  $effect(() => saveKeyflowPreference('theme_id', String(state_theme.theme_id)));
 
   async function prepare(definition?: InstrumentDefinition) {
     const request = ++generation;
@@ -148,6 +150,11 @@
     writePref('transposed', value);
   }
 
+  function setInverted(value: boolean) {
+    inverted = value;
+    writePref('sheet:inverted', value);
+  }
+
   function setSeparateHands(value: boolean) {
     separateHands = value;
     writePref('sheet:separate-hands', value);
@@ -167,9 +174,11 @@
   onDestroy(() => engine.dispose());
 </script>
 
-<Keyflow options={{ storagePrefix: 'nhacode:', lockstep: false, themes: [{ name: 'default', name_to_color: {
-  '--primary': '#000000', '--secondary': '#000000', '--tertiary': '#808080', '--background': '#ffffff',
-} }] }}>
+<Keyflow options={{ storagePrefix: 'nhacode:', lockstep: false, themes: [
+  { name: 'light', name_to_color: { '--primary': '#000000', '--secondary': '#000000', '--tertiary': '#808080', '--background': '#ffffff' } },
+  { name: 'dark', name_to_color: { '--primary': '#ffffff', '--secondary': '#ffffff', '--tertiary': '#8c8c8c', '--background': '#000000' } },
+  { name: 'sepia', name_to_color: { '--primary': '#3b2f1e', '--secondary': '#3b2f1e', '--tertiary': '#9a8b73', '--background': '#f4ecd8' } },
+] }}>
   <main class:transposed aria-label="Piano keyboard" aria-busy={status === 'loading'}
     data-audio-state={status} data-instrument={instrumentId} data-range={range}
     data-views={[showKeyboard && 'keyboard', showSheet && 'sheet'].filter(Boolean).join(' ')}
@@ -180,7 +189,8 @@
       <Settings bind:open={settingsOpen} {transposed} {instrumentId} {range}
         ontranspose={setTransposed} oninstrument={selectInstrument} onrange={selectRange}
         {margins} onmargin={setMargin} {lineWidths} online={setLineWidth}
-        {keyBorder} onkeyborder={setKeyBorder} {separateHands} onseparatehands={setSeparateHands} />
+        {keyBorder} onkeyborder={setKeyBorder} {separateHands} onseparatehands={setSeparateHands}
+        {inverted} oninverted={setInverted} />
       <ViewToggle label="Sheet" shortcut="s" on={showSheet} disabled={settingsOpen} ontoggle={() => toggleView('sheet')}>sheet</ViewToggle>
       <ViewToggle label="Keyboard" shortcut="k" on={showKeyboard} disabled={settingsOpen} ontoggle={() => toggleView('keyboard')}>
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
@@ -207,7 +217,7 @@
         </section>
       {/if}
       {#if showSheet}
-        <div class="sheet-view"><Sheet {songId} {lineWidths} {separateHands} /></div>
+        <div class="sheet-view"><Sheet {songId} {lineWidths} {separateHands} {inverted} /></div>
       {/if}
     </div>
   </main>

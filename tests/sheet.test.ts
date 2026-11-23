@@ -70,10 +70,24 @@ test('separate hands split each measure by hand and keep both hands aligned', as
   assert.deepEqual(together.map((s) => s.hands.map((h) => h.hand)), [['both']]);
   assert.equal(together[0].hands[0].stream.measures[0].notes.length, 2);
   const apart = layoutSystems(measures, 5, true);
-  assert.deepEqual(apart.map((s) => s.hands.map((h) => h.hand)), [['right', 'left'], ['right', 'left']]);
-  const [right, left] = apart[0].hands.map((h) => h.stream);
+  assert.deepEqual(apart.map((s) => s.hands.map((h) => h.hand)), [['left', 'right'], ['left', 'right']]);
+  const [left, right] = apart[0].hands.map((h) => h.stream); // left hand on top
   assert.deepEqual(right.measures[0].notes.map((n) => n.midi), [69]);
   assert.deepEqual(left.measures[0].notes.map((n) => n.midi), [45]);
   assert.equal(right.frames, left.frames);
-  assert.deepEqual(apart[1].hands[0].stream.measures[0].notes, []);
+  assert.deepEqual(apart[1].hands[1].stream.measures[0].notes, []);
+});
+
+test('markings group by frame, and hairpins continue across systems', async () => {
+  const { layoutMarks, layoutSystems } = await import('../src/lib/sheet/layout.ts');
+  const measures = [
+    { number: '1', duration: 4, resolution: 1, notes: [], marks: [
+      { start: 0, kind: 'time' as const, text: '4/4' }, { start: 0, kind: 'dynamic' as const, text: 'p' },
+      { start: 2, kind: 'wedge' as const, text: 'crescendo' }] },
+    { number: '2', duration: 4, resolution: 1, notes: [], marks: [{ start: 1, kind: 'wedge' as const, text: 'stop' }] },
+  ];
+  const [first, second] = layoutMarks(layoutSystems(measures, 4, false));
+  assert.deepEqual(first.texts, [{ frame: 0, parts: [{ kind: 'time', text: '4/4' }, { kind: 'dynamic', text: 'p' }] }]);
+  assert.deepEqual(first.hairpins, [{ kind: 'crescendo', from: 2, to: 4, continued: false, open: true }]);
+  assert.deepEqual(second.hairpins, [{ kind: 'crescendo', from: 0, to: 2, continued: true, open: false }]);
 });
