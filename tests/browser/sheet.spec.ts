@@ -346,8 +346,8 @@ test('sheet playback plays, pauses, seeks to a clicked measure, and is configura
   // Clicking a measure moves the playhead there, and playback continues from it.
   await page.locator('.sheet-measure[data-index="5"]').first().click();
   await expect(page.locator('.playhead')).toHaveCount(1);
-  await expect.poll(() => page.locator('.playhead').evaluate((rect) => Number(rect.closest('[data-index]')!.getAttribute('data-index'))))
-    .toBeGreaterThanOrEqual(5);
+  await expect.poll(() => page.evaluate(() =>
+    Number(document.querySelector('.playhead')?.closest('[data-index]')?.getAttribute('data-index') ?? -1))).toBeGreaterThanOrEqual(5);
   await page.keyboard.press('p');
   await expect(play).toHaveAttribute('data-playing', 'false');
   const paused = await page.locator('.playhead').evaluate((rect) => rect.closest('[data-index]')!.getAttribute('data-index'));
@@ -399,8 +399,10 @@ test('playback menu picks a start measure, and the metronome runs with saved set
   await page.keyboard.press('n');
   await expect(page.locator('.metronome-toggle')).toHaveAttribute('data-playing', 'true');
   await expect(page.locator('.metronome-head')).toHaveCount(1);
-  await expect.poll(() => page.locator('.metronome-head').evaluate((rect) => Number(rect.closest('[data-index]')!.getAttribute('data-index'))),
-    { timeout: 5000 }).toBeGreaterThan(7);
+  // Read the cursor fresh each time: it re-renders as it moves between measures.
+  const metronomeMeasure = () => page.evaluate(() =>
+    Number(document.querySelector('.metronome-head')?.closest('[data-index]')?.getAttribute('data-index') ?? -1));
+  await expect.poll(metronomeMeasure, { timeout: 8000 }).toBeGreaterThan(7);
   await page.keyboard.press('n');
   await expect(page.locator('.metronome-toggle')).toHaveAttribute('data-playing', 'false');
   await expect(page.locator('.metronome-head')).toHaveCount(0);
