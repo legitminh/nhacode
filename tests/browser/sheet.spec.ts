@@ -259,8 +259,17 @@ test('Settings can show the left and right hands as separate streams', async ({ 
 test('score markings sit above the first stream, and order inversion flips each stream', async ({ page }) => {
   await page.getByRole('button', { name: /^Sheet/ }).click();
   const system = page.locator('.sheet-stream-box').first();
-  // Für Elise opens in 3/8 at ♩=100, piano.
-  await expect(system.locator('.sheet-mark').first()).toHaveText('3/8 ♩=100 p');
+  // Für Elise opens at 100 bpm, piano; time signatures are left out.
+  await expect(system.locator('.sheet-mark').first()).toHaveText('bpm=100 p');
+  // Markings that would overlap move to a new row instead.
+  const boxes = await page.locator('.sheet-marks').first().locator('.sheet-mark, .hairpin').evaluateAll((items) => items.map((item) => {
+    const box = item.getBoundingClientRect();
+    return { left: box.left, right: box.right, top: box.top, bottom: box.bottom };
+  }));
+  for (const [i, a] of boxes.entries()) for (const b of boxes.slice(i + 1)) {
+    const overlap = a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1;
+    expect(overlap).toBe(false);
+  }
   await expect(page.locator('.hairpin[data-kind="crescendo"]').first()).toBeAttached();
   const marks = (await system.locator('.sheet-marks').boundingBox())!;
   const stream = (await system.locator('.sheet-stream').boundingBox())!;
@@ -290,4 +299,18 @@ test('Settings offers Keyflow themes', async ({ page }) => {
   await expect.poll(background).toBe('#000000');
   await page.reload();
   await expect.poll(background).toBe('#000000');
+});
+
+test('markings stay inside the line', async ({ page }) => {
+  await page.evaluate(() => localStorage.setItem('nhacode:song', '"symphony-5"'));
+  await page.reload();
+  await page.getByRole('button', { name: /^Sheet/ }).click();
+  await expect(page.locator('.sheet-mark').first()).toBeVisible();
+  for (const marks of await page.locator('.sheet-marks').all()) {
+    const line = (await marks.boundingBox())!;
+    for (const text of await marks.locator('.sheet-mark').all()) {
+      const box = (await text.boundingBox())!;
+      expect(box.x + box.width).toBeLessThanOrEqual(line.x + line.width + 1);
+    }
+  }
 });

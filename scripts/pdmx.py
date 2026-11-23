@@ -218,7 +218,6 @@ def strip_namespaces(root):
     return root
 
 
-BEAT_SYMBOLS = {'whole': '𝅝', 'half': '𝅗𝅥', 'quarter': '♩', 'eighth': '♪', '16th': '𝅘𝅥𝅯'}
 DYNAMICS = {'p', 'pp', 'ppp', 'pppp', 'mp', 'mf', 'f', 'ff', 'fff', 'ffff', 'sf', 'sfz', 'sffz', 'sfp', 'fp', 'fz', 'rf', 'rfz', 'pf'}
 
 
@@ -244,8 +243,7 @@ def direction_marks(direction):
     for kind in direction.findall('direction-type'):
         for item in kind:
             if item.tag == 'metronome' and item.findtext('per-minute'):
-                beat = BEAT_SYMBOLS.get(item.findtext('beat-unit', 'quarter'), '♩') + ('.' if item.find('beat-unit-dot') is not None else '')
-                marks.append(('tempo', f"{beat}={item.findtext('per-minute').strip()}"))
+                marks.append(('tempo', f"bpm={item.findtext('per-minute').strip()}"))
                 has_metronome = True
             elif item.tag == 'dynamics':
                 for level in item:
@@ -258,7 +256,7 @@ def direction_marks(direction):
                 marks.append(('words', ' '.join(item.text.split())))
     sound = direction.find('sound')
     if not has_metronome and sound is not None and sound.get('tempo'):
-        marks.append(('sound-tempo', f"♩={round(float(sound.get('tempo')))}"))  # playback-only tempo
+        marks.append(('sound-tempo', f"bpm={round(float(sound.get('tempo')))}"))  # playback-only tempo
     return marks
 
 
@@ -290,9 +288,6 @@ def parse_score(xml):
                         staves = int(element.findtext('staves'))
                     for clef in element.findall('clef'):
                         clefs[clef.get('number', '1')] = clef.findtext('sign', 'G')
-                    time_signature = element.find('time')
-                    if time_signature is not None and time_signature.findtext('beats'):
-                        add_mark(out, pos, 'time', f"{time_signature.findtext('beats')}/{time_signature.findtext('beat-type')}")
                 if element.tag == 'direction':
                     offset = int(float(element.findtext('offset', '0'))) * (tpq // divisions)
                     for mark in direction_marks(element):
@@ -348,7 +343,7 @@ def simplify(song_id, title):
     tags = json.loads(saved_tags) if saved_tags and saved_tags != '[]' else tags_for(json.loads(metadata))
     tpq, measures = parse_score(musicxml_from_mxl(data))
     out_measures = []
-    last = {'time': None, 'tempo': None}  # only show a time signature or tempo when it changes
+    last = {'tempo': None}  # only show a tempo when it changes
     for measure in measures:
         values = [measure['duration']]
         for start, duration in measure['spans']:

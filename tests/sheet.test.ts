@@ -78,16 +78,19 @@ test('separate hands split each measure by hand and keep both hands aligned', as
   assert.deepEqual(apart[1].hands[1].stream.measures[0].notes, []);
 });
 
-test('markings group by frame, and hairpins continue across systems', async () => {
+test('markings group by frame, overlapping ones move to new rows, and hairpins continue across systems', async () => {
   const { layoutMarks, layoutSystems } = await import('../src/lib/sheet/layout.ts');
   const measures = [
     { number: '1', duration: 4, resolution: 1, notes: [], marks: [
-      { start: 0, kind: 'time' as const, text: '4/4' }, { start: 0, kind: 'dynamic' as const, text: 'p' },
+      { start: 0, kind: 'tempo' as const, text: 'bpm=90' }, { start: 0, kind: 'dynamic' as const, text: 'p' },
       { start: 2, kind: 'wedge' as const, text: 'crescendo' }] },
     { number: '2', duration: 4, resolution: 1, notes: [], marks: [{ start: 1, kind: 'wedge' as const, text: 'stop' }] },
   ];
   const [first, second] = layoutMarks(layoutSystems(measures, 4, false));
-  assert.deepEqual(first.texts, [{ frame: 0, parts: [{ kind: 'time', text: '4/4' }, { kind: 'dynamic', text: 'p' }] }]);
-  assert.deepEqual(first.hairpins, [{ kind: 'crescendo', from: 2, to: 4, continued: false, open: true }]);
-  assert.deepEqual(second.hairpins, [{ kind: 'crescendo', from: 0, to: 2, continued: true, open: false }]);
+  assert.deepEqual(first.texts, [{ frame: 0, parts: [{ kind: 'tempo', text: 'bpm=90' }, { kind: 'dynamic', text: 'p' }], row: 0 }]);
+  // "bpm=90 p" covers frames 0-8, so the hairpin starting at frame 2 drops to row 1.
+  assert.deepEqual(first.hairpins, [{ kind: 'crescendo', from: 2, to: 4, continued: false, open: true, row: 1 }]);
+  assert.equal(first.rows, 2);
+  assert.deepEqual(second.hairpins, [{ kind: 'crescendo', from: 0, to: 2, continued: true, open: false, row: 0 }]);
+  assert.equal(second.rows, 1);
 });

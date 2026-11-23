@@ -86,9 +86,11 @@ The sheet has no stave; it only shows which key is pressed when:
   the line above octave n is n. Digits and hold dashes take their octave's color
   too, so each octave block matches the line above it.
 - Measures wrap to a new stream at the screen edge.
-- Score markings sit on a row above each line: time signature and tempo when they
-  change, dynamics (bold italic), short directions such as *dim.* or *a tempo*, and
-  crescendo/diminuendo hairpins (which continue onto the next line when needed).
+- Score markings sit above each line: tempo as `bpm=N` when it changes, dynamics
+  (bold italic), short directions such as *dim.* or *a tempo*, and crescendo/
+  diminuendo hairpins (which continue onto the next line when needed). Time
+  signatures are left out. Markings that would overlap move to a new row, and text
+  near the right edge slides left to stay inside the line.
 - **Sheet pane → Hands** switches between one stream per line (Together) and one
   mega stream per line (Separate): the left-hand stream above the right-hand
   stream under a thick bar, both wrapped at the same measures. Hands come from the score: a piano grand staff's

@@ -137,10 +137,29 @@ export function layoutSystems(measures: SongMeasure[], width: number, separate: 
   });
 }
 
-export type MarkText = { frame: number; parts: { kind: SongMark['kind']; text: string }[] };
-export type Hairpin = { kind: 'crescendo' | 'diminuendo'; from: number; to: number; continued: boolean; open: boolean };
+export type MarkText = { frame: number; parts: { kind: SongMark['kind']; text: string }[]; row: number };
+export type Hairpin = { kind: 'crescendo' | 'diminuendo'; from: number; to: number; continued: boolean; open: boolean; row: number };
 /** Markings for one system, in stream frames: texts plus hairpins (which may continue across systems). */
-export type SystemMarks = { texts: MarkText[]; hairpins: Hairpin[] };
+export type SystemMarks = { texts: MarkText[]; hairpins: Hairpin[]; rows: number };
+
+/** Frames a marking text covers: one monospace glyph is about one frame (half a min-box) wide. */
+export const textFrames = (text: MarkText) => text.parts.map((part) => part.text).join(' ').length;
+
+/** Moves markings that would overlap onto further rows below; returns the row count. */
+function stackRows(texts: MarkText[], hairpins: Hairpin[]): number {
+  const items = [
+    ...texts.map((text) => ({ item: text, from: text.frame, to: text.frame + textFrames(text) + 1 })),
+    ...hairpins.map((pin) => ({ item: pin, from: pin.from, to: Math.max(pin.to, pin.from + 2) })),
+  ].sort((a, b) => a.from - b.from);
+  const ends: number[] = [];
+  for (const { item, from, to } of items) {
+    let row = ends.findIndex((end) => end <= from);
+    if (row < 0) row = ends.push(0) - 1;
+    ends[row] = to;
+    item.row = row;
+  }
+  return ends.length;
+}
 
 /** Places every system's markings; a hairpin left open at a line end continues on the next line. */
 export function layoutMarks(systems: SystemLayout[]): SystemMarks[] {
@@ -157,18 +176,20 @@ export function layoutMarks(systems: SystemLayout[]): SystemMarks[] {
         if (mark.kind !== 'wedge') {
           const previous = texts.at(-1);
           if (previous && previous.frame === frame) previous.parts.push({ kind: mark.kind, text: mark.text });
-          else texts.push({ frame, parts: [{ kind: mark.kind, text: mark.text }] });
+          else texts.push({ frame, parts: [{ kind: mark.kind, text: mark.text }], row: 0 });
         } else if (mark.text === 'stop') {
-          if (open) hairpins.push({ kind: open.kind, from: open.from, to: frame + 1, continued: open.continued, open: false });
+          if (open) hairpins.push({ kind: open.kind, from: open.from, to: frame + 1, continued: open.continued, open: false, row: 0 });
           open = undefined;
         } else {
-          if (open) hairpins.push({ kind: open.kind, from: open.from, to: frame, continued: open.continued, open: false });
+          if (open) hairpins.push({ kind: open.kind, from: open.from, to: frame, continued: open.continued, open: false, row: 0 });
           open = { kind: mark.text as Hairpin['kind'], from: frame, continued: false };
         }
       }
       offset += measure.frames;
     }
-    if (open) hairpins.push({ kind: open.kind, from: open.from, to: stream.frames, continued: open.continued, open: true });
-    return { texts, hairpins };
+    if (open) hairpins.push({ kind: open.kind, from: open.from, to: stream.frames, continued: open.continued, open: true, row: 0 });
+    // Keep text inside the line: a marking near the right edge slides left to fit.
+    for (const text of texts) text.frame = Math.max(0, Math.min(text.frame, stream.frames - textFrames(text)));
+    return { texts, hairpins, rows: stackRows(texts, hairpins) };
   });
 }

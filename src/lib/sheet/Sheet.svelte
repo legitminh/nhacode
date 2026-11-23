@@ -81,10 +81,10 @@
           <!-- One system: markings, then a stream or a mega stream of both hands. Paging never splits it. -->
           <div class="sheet-stream-box" class:hands={system.hands.length > 1} class:inverted data-system={index} use:must_view>
           {#if marked.texts.length || marked.hairpins.length}
-            <svg class="sheet-marks" width={top.frames * CELL} height={ROW} viewBox={`0 0 ${top.frames * CELL} ${ROW}`}
+            <svg class="sheet-marks" width={top.frames * CELL} height={ROW * marked.rows} viewBox={`0 0 ${top.frames * CELL} ${ROW * marked.rows}`}
               role="img" aria-label="Markings">
               {#each marked.texts as mark}
-                <text class="sheet-mark" x={mark.frame * CELL} y={ROW / 2}
+                <text class="sheet-mark" data-row={mark.row} x={mark.frame * CELL} y={mark.row * ROW + ROW / 2}
                   >{#each mark.parts as part, i}<tspan class="sheet-mark-part" data-kind={part.kind}>{i ? ' ' : ''}{part.text}</tspan>{/each}</text>
               {/each}
               {#each marked.hairpins as pin}
@@ -92,11 +92,12 @@
                 {@const x2 = Math.max(x1 + CELL, pin.to * CELL - CELL / 4)}
                 {@const wide = ROW * .3}
                 {@const narrow = pin.continued ? wide / 2 : 0}
+                {@const mid = pin.row * ROW + ROW / 2}
                 {@const [a, b] = pin.kind === 'crescendo' ? [narrow, pin.open ? wide / 2 : wide] : [pin.continued ? wide / 2 : wide, pin.open ? wide / 2 : 0]}
                 <polyline class="hairpin" data-kind={pin.kind} fill="none"
-                  points={`${x1},${ROW / 2 - a} ${x2},${ROW / 2 - b}`} />
+                  points={`${x1},${mid - a} ${x2},${mid - b}`} />
                 <polyline class="hairpin" data-kind={pin.kind} fill="none"
-                  points={`${x1},${ROW / 2 + a} ${x2},${ROW / 2 + b}`} />
+                  points={`${x1},${mid + a} ${x2},${mid + b}`} />
               {/each}
             </svg>
           {/if}
