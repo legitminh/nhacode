@@ -1,8 +1,8 @@
 import type { Click, Position, Timeline } from './timeline';
 
 /** Click strengths out of 8 (0 is silent) and in-between clicks per beat. */
-export type MetronomeSettings = { strong: number; weak: number; between: number; sub: number };
-export const DEFAULT_METRONOME: MetronomeSettings = { strong: 8, weak: 5, between: 0, sub: 3 };
+export type MetronomeSettings = { strong: number; weak: number; between: number; sub: number; speed?: number };
+export const DEFAULT_METRONOME: MetronomeSettings = { strong: 8, weak: 5, between: 0, sub: 3, speed: 1 };
 
 const PITCH: Record<Click['kind'], number> = { strong: 1568, weak: 1175, sub: 880 };
 const LOOKAHEAD = 0.12; // seconds of clicks scheduled ahead on the audio clock
@@ -30,7 +30,14 @@ export class Metronome {
     this.clicks = timeline?.clicks(this.settings.between) ?? [];
   }
 
+  private get speed() { return this.settings.speed ?? 1; }
+
   configure(settings: MetronomeSettings) {
+    if (this.running && this.context && (settings.speed ?? 1) !== this.speed) {
+      // Re-anchor so a speed change continues from the current beat.
+      this.from = this.songTime();
+      this.origin = this.context.currentTime;
+    }
     const rebuild = settings.between !== this.settings.between;
     this.settings = settings;
     if (rebuild && this.timeline) {
@@ -63,16 +70,16 @@ export class Metronome {
   }
 
   private songTime() {
-    return this.from + ((this.context?.currentTime ?? 0) - this.origin) * 1000;
+    return this.from + ((this.context?.currentTime ?? 0) - this.origin) * 1000 * this.speed;
   }
 
   private schedule() {
     const context = this.context;
     if (!context || !this.timeline) return;
-    const horizon = this.from + (context.currentTime + LOOKAHEAD - this.origin) * 1000;
+    const horizon = this.from + (context.currentTime + LOOKAHEAD - this.origin) * 1000 * this.speed;
     while (this.next < this.clicks.length && this.clicks[this.next].time <= horizon) {
       const click = this.clicks[this.next++];
-      this.sound(click, this.origin + (click.time - this.from) / 1000);
+      this.sound(click, this.origin + (click.time - this.from) / 1000 / this.speed);
     }
     const now = this.songTime();
     if (now >= this.timeline.duration) { this.stop(); return; }

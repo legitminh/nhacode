@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { NumberBox, SubKeyframe } from '@legitminh/keyflow';
+  import { HorizontalSlider, NumberBox, SubKeyframe } from '@legitminh/keyflow';
   import type { MetronomeSettings } from './metronome.svelte';
 
   let { settings, disabled = false, onchange }: {
@@ -23,6 +23,11 @@
           <NumberBox {label} value={settings[key]} min={0} {max} step={1} onchange={set(key)} class="metronome-field" />
         </div>
       {/each}
+      <div class="speed-setting">
+        <span>Speed ×{(settings.speed ?? 1).toFixed(2)}</span>
+        <HorizontalSlider label="Metronome speed" value={settings.speed ?? 1} min={0.25} max={2} step={0.05}
+          valueText={(value) => `${value.toFixed(2)} times`} onchange={set('speed')} class="speed-slider" />
+      </div>
     </div>
   {/snippet}
 </SubKeyframe>

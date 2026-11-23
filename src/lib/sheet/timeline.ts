@@ -86,6 +86,14 @@ export class Timeline {
       this.events.push({ time: on, on: true, id: note.id, midi: note.midi, velocity: note.velocity });
       this.events.push({ time: Math.max(on + 1, this.timeOf(end)), on: false, id: note.id, midi: note.midi, velocity: 0 });
     }
+    // Sustain pedal: id 'pedal' events press (on) or lift (off) the damper; a change lifts and presses at once.
+    song.measures.forEach((measure, m) => {
+      for (const pedal of measure.pedals ?? []) {
+        const time = this.timeOf(this.starts[m] + pedal.start);
+        if (pedal.type !== 'start') this.events.push({ time, on: false, id: 'pedal', midi: -1, velocity: 0 });
+        if (pedal.type !== 'stop') this.events.push({ time, on: true, id: 'pedal', midi: -1, velocity: 0 });
+      }
+    });
     // Releases before attacks at the same moment, so a repeated key re-strikes.
     this.events.sort((a, b) => a.time - b.time || Number(a.on) - Number(b.on));
   }

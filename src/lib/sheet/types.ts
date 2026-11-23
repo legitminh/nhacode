@@ -27,6 +27,8 @@ export type SongMeasure = {
   marks?: SongMark[];
   /** Playback tempo changes in quarter notes per minute. */
   tempos?: { start: number; qpm: number }[];
+  /** Sustain pedal marks: start (down), stop (up), change (up and straight back down). */
+  pedals?: { start: number; type: 'start' | 'stop' | 'change' }[];
   /** Time signature [beats, beat type] where it is set; later measures keep it. */
   time?: [number, number];
 };

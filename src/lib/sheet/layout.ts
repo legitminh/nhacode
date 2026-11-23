@@ -198,3 +198,36 @@ export function layoutMarks(systems: SystemLayout[]): SystemMarks[] {
     return { texts, hairpins, rows: stackRows(texts, hairpins) };
   });
 }
+
+/** One pedal-down span on a line, in frames; `continued`/`open` when it crosses a line break. */
+export type PedalSpan = { from: number; to: number; changes: number[]; continued: boolean; open: boolean };
+
+/** Lays out the sustain pedal for each system; a pedal held across a line break continues on the next. */
+export function layoutPedals(systems: SystemLayout[], measures: SongMeasure[]): PedalSpan[][] {
+  let down: { from: number; changes: number[]; continued: boolean } | undefined;
+  return systems.map((system) => {
+    const stream = system.hands[0].stream;
+    const spans: PedalSpan[] = [];
+    if (down) down = { from: 0, changes: [], continued: true };
+    let offset = 0;
+    for (const layout of stream.measures) {
+      const measure = measures[layout.index];
+      for (const pedal of measure.pedals ?? []) {
+        const frame = offset + Math.min(layout.frames - 1, Math.floor(pedal.start / layout.resolution));
+        if (pedal.type === 'start') {
+          if (down) spans.push({ ...down, to: frame, open: false });
+          down = { from: frame, changes: [], continued: false };
+        } else if (pedal.type === 'change') {
+          if (down) down.changes.push(frame);
+          else down = { from: frame, changes: [], continued: false };
+        } else if (down) {
+          spans.push({ ...down, to: Math.max(frame, down.from + 1), open: false });
+          down = undefined;
+        }
+      }
+      offset += layout.frames;
+    }
+    if (down) spans.push({ ...down, to: stream.frames, open: true });
+    return spans;
+  });
+}

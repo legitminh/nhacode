@@ -1,6 +1,6 @@
 <script lang="ts">
   import { ButtonPositional, Document, InputFrame, StaticButton, create_input_frame, input_frame_manager, min_box, must_view } from '@legitminh/keyflow';
-  import { layoutMarks, layoutSystems, type MeasureLayout, type StreamLayout } from './layout';
+  import { layoutMarks, layoutPedals, layoutSystems, type MeasureLayout, type StreamLayout } from './layout';
   import type { Song } from './types';
   import { octaveLineColor } from '../colors';
 
@@ -9,11 +9,13 @@
 
   import type { Position } from './timeline';
 
-  let { songId, lineWidths, separateHands = false, inverted = false, articulations = true, playhead, metronomeHead, picking = false, onpick, oncancelpick,
+  let { songId, lineWidths, separateHands = false, inverted = false, articulations = true, pedalPosition = 'below', playhead, metronomeHead, picking = false, onpick, oncancelpick,
     onseek, onsong }: {
     songId: string; lineWidths: LineWidths; separateHands?: boolean; inverted?: boolean;
     /** Show staccato, accent and fermata above notes and arpeggios left of chords. */
     articulations?: boolean;
+    /** Where the sustain-pedal stream goes, when the score has pedal marks. */
+    pedalPosition?: 'below' | 'above';
     /** Where playback is; its time frame is highlighted. */
     playhead?: Position;
     /** Where the metronome is; outlined. */
@@ -40,6 +42,8 @@
   let width = $state(0);
   const systems = $derived(song ? layoutSystems(song.measures, Math.max(1, Math.floor((width - 16) / CELL)), separateHands) : []);
   const marks = $derived(layoutMarks(systems));
+  const hasPedal = $derived(!!song?.measures.some((measure) => measure.pedals?.length));
+  const pedals = $derived(song && hasPedal ? layoutPedals(systems, song.measures) : []);
   const HAND_NAMES: Record<string, string> = { right: 'Right hand', left: 'Left hand' };
   /** Inverted order mirrors each stream vertically: octave 0 and its border go to the bottom. */
   const flip = (y: number, height: number) => (inverted ? height - y : y);
@@ -133,6 +137,28 @@
               {/each}
             </svg>
           {/if}
+          {#snippet pedalStream()}
+            {@const h = ROW * .6}
+            <svg class="sheet-pedal" data-position={pedalPosition} width={top.frames * CELL} height={h}
+              viewBox={`0 0 ${top.frames * CELL} ${h}`} role="img" aria-label="Sustain pedal">
+              {#each pedals[index] as span}
+                {@const x1 = span.from * CELL + 1}
+                {@const x2 = span.to * CELL - 1}
+                {@const base = pedalPosition === 'below' ? h * .8 : h * .2}
+                {@const tip = pedalPosition === 'below' ? h * .25 : h * .75}
+                <g class="pedal-span" data-from={span.from} data-to={span.to}>
+                  {#if !span.continued}<line x1={x1} x2={x1} y1={tip} y2={base} />{/if}
+                  <line {x1} x2={x2} y1={base} y2={base} />
+                  {#each span.changes as change}
+                    {@const cx = change * CELL}
+                    <polyline fill="none" points={`${cx - CELL / 3},${base} ${cx},${tip} ${cx + CELL / 3},${base}`} />
+                  {/each}
+                  {#if !span.open}<line x1={x2} x2={x2} y1={tip} y2={base} />{/if}
+                </g>
+              {/each}
+            </svg>
+          {/snippet}
+          {#if hasPedal && pedalPosition === 'above'}{@render pedalStream()}{/if}
           <div class="sheet-hands">
           {#if picking}
             <div class="pick-layer">
@@ -216,6 +242,7 @@
           </svg>
           {/each}
           </div>
+          {#if hasPedal && pedalPosition === 'below'}{@render pedalStream()}{/if}
           </div>
         {/each}
       </div>
@@ -276,6 +303,8 @@
   .sheet-measure.seekable:hover .measure-hit { fill: var(--tertiary); fill-opacity: .08; }
   .playhead { fill: var(--primary); fill-opacity: .15; }
   .articulations { stroke-width: 1.5; }
+  .sheet-pedal { display: block; overflow: visible; }
+  .pedal-span line, .pedal-span polyline { stroke: currentColor; stroke-width: 1.5; }
   .articulations polyline, .articulations path { stroke-linecap: round; stroke-linejoin: round; }
   .metronome-head { fill: none; stroke: var(--primary); stroke-width: 2; stroke-dasharray: 4 3; }
   .sheet-hands { position: relative; }

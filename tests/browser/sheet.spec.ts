@@ -264,7 +264,8 @@ test('score markings sit above the first stream, and order inversion flips each 
   await page.getByRole('button', { name: /^Sheet/ }).click();
   const system = page.locator('.sheet-stream-box').first();
   // Für Elise opens at 100 bpm, piano; time signatures are left out.
-  await expect(system.locator('.sheet-mark').first()).toHaveText('bpm=100 p');
+  // The source marks ♩=100 in 3/8, far too fast; songs.json scales it to a usual Poco moto (♩=65).
+  await expect(system.locator('.sheet-mark').first()).toHaveText('bpm=65 p');
   // Markings that would overlap move to a new row instead.
   const boxes = await page.locator('.sheet-marks').first().locator('.sheet-mark, .hairpin').evaluateAll((items) => items.map((item) => {
     const box = item.getBoundingClientRect();
@@ -438,4 +439,43 @@ test('articulations show above notes (arpeggios left of chords) and can be turne
   const arpeggio = page.locator('.art-arpeggio').first();
   await expect(arpeggio).toBeAttached();
   expect(await arpeggio.evaluate((path) => path.getBoundingClientRect().right <= path.closest('g')!.previousElementSibling!.getBoundingClientRect().left + 1)).toBe(true);
+});
+
+test('the sustain pedal shows as its own stream only when the score has pedal marks', async ({ page }) => {
+  await page.getByRole('button', { name: /^Sheet/ }).click();
+  const system = page.locator('.sheet-stream-box').first();
+  await expect(system.locator('.sheet-pedal')).toHaveCount(1);
+  const below = await system.evaluate((box) => [...box.children].map((child) => child.classList.contains('sheet-pedal') ? 'pedal' : child.classList.contains('sheet-hands') ? 'music' : 'other'));
+  expect(below.indexOf('pedal')).toBeGreaterThan(below.indexOf('music'));
+  expect(await page.locator('.pedal-span').count()).toBeGreaterThan(5);
+  await paneMenu(page, 'Sheet');
+  await page.getByRole('button', { name: /Pedal: Below/ }).click();
+  await closeSettings(page);
+  const above = await system.evaluate((box) => [...box.children].map((child) => child.classList.contains('sheet-pedal') ? 'pedal' : child.classList.contains('sheet-hands') ? 'music' : 'other'));
+  expect(above.indexOf('pedal')).toBeLessThan(above.indexOf('music'));
+  // Clair de Lune's score has no pedal marks: no pedal stream.
+  await page.evaluate(() => localStorage.setItem('nhacode:song', '"clair-de-lune"'));
+  await page.reload();
+  await expect(page.locator('.sheet-stream').first()).toBeVisible();
+  await expect(page.locator('.sheet-pedal')).toHaveCount(0);
+});
+
+test('playback and metronome menus have Keyflow speed sliders that are remembered', async ({ page }) => {
+  await page.getByRole('button', { name: /^Sheet/ }).click();
+  await page.keyboard.press('o');
+  const playbackSpeed = page.getByRole('slider', { name: 'Playback speed' });
+  await expect(playbackSpeed).toHaveAttribute('aria-valuenow', '1');
+  // Keyflow's slider buttons step it; each press moves one 0.05 step.
+  const playbackPanel = page.locator('.playback-menu .speed-setting');
+  await playbackPanel.getByRole('button', { name: /Decrease Playback speed/ }).click();
+  await playbackPanel.getByRole('button', { name: /Decrease Playback speed/ }).click();
+  await expect(playbackSpeed).toHaveAttribute('aria-valuenow', '0.9');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('t');
+  const metronomeSpeed = page.getByRole('slider', { name: 'Metronome speed' });
+  await page.getByRole('button', { name: /Increase Metronome speed/ }).click();
+  await expect(metronomeSpeed).toHaveAttribute('aria-valuenow', '1.05');
+  await page.reload();
+  expect(await page.evaluate(() => [localStorage.getItem('nhacode:sheet:playback-speed'),
+    JSON.parse(localStorage.getItem('nhacode:sheet:metronome')!).speed])).toEqual(['0.9', 1.05]);
 });

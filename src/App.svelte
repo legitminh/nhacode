@@ -46,6 +46,10 @@
   const savedPlaybackInstrument = instruments.find((item) => item.id === readPref('sheet:playback-instrument', '', isString)) ?? instruments[0];
   let playbackInstrumentId = $state(savedPlaybackInstrument.id);
   const player = new Player(savedPlaybackInstrument);
+  const isSpeed = (value: unknown): value is number => typeof value === 'number' && value >= 0.25 && value <= 2;
+  let playbackSpeed = $state(readPref('sheet:playback-speed', 1, isSpeed));
+  player.setSpeed(readPref('sheet:playback-speed', 1, isSpeed));
+  let pedalPosition = $state(readPref('sheet:pedal', 'below', (value): value is 'below' | 'above' => value === 'below' || value === 'above'));
   const isMetronome = (value: unknown): value is MetronomeSettings => typeof value === 'object' && value !== null
     && (['strong', 'weak', 'between', 'sub'] as const).every((key) => Number.isInteger((value as MetronomeSettings)[key]));
   const savedMetronome = readPref('sheet:metronome', DEFAULT_METRONOME, isMetronome);
@@ -178,6 +182,17 @@
     else void metronome.start(player.songTime());
   }
 
+  function setPlaybackSpeed(speed: number) {
+    playbackSpeed = speed;
+    player.setSpeed(speed);
+    writePref('sheet:playback-speed', speed);
+  }
+
+  function setPedalPosition(value: 'below' | 'above') {
+    pedalPosition = value;
+    writePref('sheet:pedal', value);
+  }
+
   function pickStart(measure: number) {
     picking = false;
     player.seek(measure);
@@ -239,7 +254,7 @@
         ontranspose={setTransposed} oninstrument={selectInstrument} onrange={selectRange}
         {margins} onmargin={setMargin} {lineWidths} online={setLineWidth}
         {keyBorder} onkeyborder={setKeyBorder} {separateHands} onseparatehands={setSeparateHands}
-        {inverted} oninverted={setInverted} {articulations} onarticulations={setArticulations}
+        {inverted} oninverted={setInverted} {articulations} onarticulations={setArticulations} {pedalPosition} onpedal={setPedalPosition}
         {playback} onplayback={setPlayback} {playbackInstrumentId} onplaybackinstrument={setPlaybackInstrument} />
       <ViewToggle label="Sheet" shortcut="s" on={showSheet} disabled={settingsOpen} ontoggle={() => toggleView('sheet')}>sheet</ViewToggle>
       <ViewToggle label="Keyboard" shortcut="k" on={showKeyboard} disabled={settingsOpen} ontoggle={() => toggleView('keyboard')}>
@@ -250,7 +265,7 @@
       </ViewToggle>
       {#if showSheet}
         {#if playback}
-          <PlaybackMenu disabled={settingsOpen} onpick={() => { picking = true; }} />
+          <PlaybackMenu disabled={settingsOpen} speed={playbackSpeed} onspeed={setPlaybackSpeed} onpick={() => { picking = true; }} />
           <PlayButton playing={player.playing} disabled={settingsOpen} ontoggle={() => player.toggle()} />
         {/if}
         <SongMenu {songId} disabled={settingsOpen} onselect={selectSong} />
@@ -276,7 +291,7 @@
         </section>
       {/if}
       {#if showSheet}
-        <div class="sheet-view"><Sheet {songId} {lineWidths} {separateHands} {inverted} {articulations}
+        <div class="sheet-view"><Sheet {songId} {lineWidths} {separateHands} {inverted} {articulations} {pedalPosition}
           playhead={playback ? player.position : undefined} onseek={playback ? (measure) => player.seek(measure) : undefined}
           metronomeHead={metronome.position} {picking} onpick={pickStart} oncancelpick={() => { picking = false; }}
           onsong={(song) => player.load(song)} /></div>

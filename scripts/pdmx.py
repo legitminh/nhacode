@@ -192,7 +192,7 @@ def fetch_requested(manifest=ROOT / 'scripts' / 'songs.json'):
         if 'composer' in entry:
             conn.execute('update scores set composer = ? where id = ?', (entry['composer'], entry['id']))
         conn.commit()
-        simplify(entry['id'], entry['title'])
+        simplify(entry['id'], entry['title'], entry.get('tempo_scale', 1))
 
 
 # --- MusicXML to "which key is pressed when" -------------------------------------------
@@ -257,6 +257,8 @@ def direction_marks(direction):
                     name = level.text.strip() if level.tag == 'other-dynamics' and level.text else level.tag
                     if name in DYNAMICS:
                         marks.append(('dynamic', name))
+            elif item.tag == 'pedal' and item.get('type') in ('start', 'stop', 'change'):
+                marks.append(('pedal', item.get('type')))
             elif item.tag == 'wedge' and item.get('type') in ('crescendo', 'diminuendo', 'stop'):
                 marks.append(('wedge', item.get('type')))
             elif item.tag == 'words' and item.text and len(item.text.strip()) <= 24 and DIRECTION_WORDS.search(item.text):
@@ -367,7 +369,8 @@ def parse_score(xml):
     return tpq, measures
 
 
-def simplify(song_id, title):
+def simplify(song_id, title, tempo_scale=1):
+    """tempo_scale corrects a score whose tempo marking is off (e.g. 0.65 = 35% slower)."""
     conn = db()
     row = conn.execute('select path, title, composer, license, mxl, metadata, tags from scores where id = ?', (song_id,)).fetchone()
     if not row:
@@ -397,16 +400,21 @@ def simplify(song_id, title):
         # Playback tempo changes (quarter notes per minute), separate from the displayed markings.
         tempos = []
         for mark in sorted((m for m in measure['marks'] if m['kind'] == 'qpm'), key=lambda m: m['start']):
-            tempo = {'start': min(mark['start'], max(0, measure['duration'] - 1)), 'qpm': float(mark['text'])}
+            tempo = {'start': min(mark['start'], max(0, measure['duration'] - 1)), 'qpm': round(float(mark['text']) * tempo_scale, 2)}
             if not tempos or tempos[-1] != tempo:
                 tempos.append(tempo)
-        for mark in sorted((m for m in measure['marks'] if m['kind'] != 'qpm'),
+        # Sustain pedal: start (down), stop (up) and change (up and down again).
+        pedals = [{'start': min(m['start'], max(0, measure['duration'] - 1)), 'type': m['text']}
+                  for m in sorted(measure['marks'], key=lambda m: m['start']) if m['kind'] == 'pedal']
+        for mark in sorted((m for m in measure['marks'] if m['kind'] not in ('qpm', 'pedal')),
                            key=lambda m: (m['start'], ['time', 'tempo', 'sound-tempo', 'words', 'dynamic', 'wedge'].index(m['kind']))):
             if mark['kind'] == 'sound-tempo':
                 # Playback tempos (often per-measure ramps) only stand in when the score has no tempo mark yet.
                 if last['tempo'] is not None:
                     continue
                 mark = {**mark, 'kind': 'tempo'}
+            if mark['kind'] == 'tempo' and tempo_scale != 1:
+                mark = {**mark, 'text': f"bpm={round(float(mark['text'].split('=')[1]) * tempo_scale)}"}
             if mark['kind'] in last:
                 if mark['text'] == last[mark['kind']]:
                     continue
@@ -416,6 +424,8 @@ def simplify(song_id, title):
             item['marks'] = marks
         if tempos:
             item['tempos'] = tempos
+        if pedals:
+            item['pedals'] = pedals
         if measure.get('time'):
             item['time'] = measure['time']
         out_measures.append(item)

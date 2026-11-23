@@ -6,6 +6,8 @@ import type { Song } from './types';
 /** MuseScore-style playback of the loaded song with one instrument from the app's pack. */
 export class Player {
   playing = $state(false);
+  /** Playback speed multiplier (1 = the score's tempo). */
+  speed = $state(1);
   position = $state<Position>({ measure: 0, tick: 0 });
   private engine: AudioEngine;
   timeline = $state.raw<Timeline | undefined>();
@@ -56,6 +58,7 @@ export class Player {
     if (this.timer) clearInterval(this.timer);
     this.timer = undefined;
     this.playing = false;
+    this.engine.setSustain(false);
     this.engine.stopAll();
   }
 
@@ -75,11 +78,12 @@ export class Player {
   private tick() {
     const timeline = this.timeline;
     if (!timeline) return;
-    const now = this.from + performance.now() - this.origin;
+    const now = this.from + (performance.now() - this.origin) * this.speed;
     const events = timeline.events;
     while (this.next < events.length && events[this.next].time <= now) {
       const event = events[this.next++];
-      if (event.on) this.engine.noteOn(event.id, event.midi, event.velocity);
+      if (event.id === 'pedal') this.engine.setSustain(event.on);
+      else if (event.on) this.engine.noteOn(event.id, event.midi, event.velocity);
       else this.engine.noteOff(event.id);
     }
     if (now >= timeline.duration) {
@@ -93,10 +97,19 @@ export class Player {
     }
   }
 
+  /** Change speed without a jump: playback continues from where it is. */
+  setSpeed(speed: number) {
+    if (this.playing && this.timer) {
+      this.from = this.songTime();
+      this.origin = performance.now();
+    }
+    this.speed = speed;
+  }
+
   /** The song time (ms) at the playhead, or where playback is right now. */
   songTime() {
     if (!this.timeline) return 0;
-    return this.playing && this.timer ? this.from + performance.now() - this.origin : this.timeline.timeAt(this.position);
+    return this.playing && this.timer ? this.from + (performance.now() - this.origin) * this.speed : this.timeline.timeAt(this.position);
   }
 
   dispose() {

@@ -86,6 +86,11 @@ The toolbar reads, left to right: **playback** (O), ▶/⏸ (P), the song title 
 - Playback follows the notated dynamics (pp … ff set the loudness, sf/sfz accent a
   single note, and hairpins ramp to the next dynamic or one step), accents play
   louder, staccato notes sound half as long, and arpeggiated chords roll low to high.
+- The sustain pedal gets its own thin stream (a bracket while held, a notch on a
+  pedal change) when the score has pedal marks: below the music by default, or above
+  via **Sheet pane → Pedal**. Playback presses and lifts the pedal too.
+- **playback** and **metronome** each have a Keyflow `HorizontalSlider` for speed
+  (×0.25–×2, step 0.05), remembered per browser.
 - **Sheet pane → Articulations** (on by default) shows staccato dots, accents and
   fermatas directly above a note's digit, and a wavy arpeggio line left of a chord.
 - Playback, instrument and metronome settings are saved in the browser. Its search
@@ -150,6 +155,9 @@ python3 scripts/pdmx.py sync                  # fetch + simplify everything in s
 ```
 
 Repeats are shown as written, not unrolled. Grace notes are omitted.
+An entry's `tempo_scale` corrects a score whose tempo marking is off: PDMX's
+Für Elise marks ♩=100 in 3/8 (about twice a usual *Poco moto*), so it is scaled
+by 0.65 to ♩=65.
 
 ### Saved settings
 
