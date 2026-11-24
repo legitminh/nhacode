@@ -272,23 +272,26 @@ def direction_marks(direction):
 
 
 ARTICULATIONS = {'staccato': 'staccato', 'staccatissimo': 'staccato', 'spiccato': 'staccato',
-                 'accent': 'accent', 'strong-accent': 'accent'}
+                 'accent': 'accent', 'strong-accent': 'accent', 'tenuto': 'tenuto', 'detached-legato': 'tenuto'}
+ART_ORDER = ['staccato', 'tenuto', 'accent', 'trill', 'fermata', 'arpeggio']
 
 
 def articulations(note):
-    """Staccato, accent, fermata and arpeggio markings on a note, in that order."""
+    """Staccato, tenuto, accent, trill, fermata and arpeggio markings on a note, in that order."""
     found = []
     for notations in note.findall('notations'):
         for group in notations.findall('articulations'):
             for item in group:
                 if item.tag in ARTICULATIONS and ARTICULATIONS[item.tag] not in found:
                     found.append(ARTICULATIONS[item.tag])
+        for ornaments in notations.findall('ornaments'):
+            if ornaments.find('trill-mark') is not None and 'trill' not in found:
+                found.append('trill')
         if notations.find('fermata') is not None and 'fermata' not in found:
             found.append('fermata')
         if notations.find('arpeggiate') is not None and 'arpeggio' not in found:
             found.append('arpeggio')
-    order = ['staccato', 'accent', 'fermata', 'arpeggio']
-    return sorted(found, key=order.index)
+    return sorted(found, key=ART_ORDER.index)
 
 
 def parse_score(xml):
@@ -333,7 +336,17 @@ def parse_score(xml):
                     pos += -amount if element.tag == 'backup' else amount
                     end = max(end, pos)
                     continue
-                if element.tag != 'note' or element.find('grace') is not None or element.find('cue') is not None:
+                if element.tag != 'note' or element.find('cue') is not None:
+                    continue
+                if element.find('grace') is not None:
+                    # Grace notes take no written time: kept in order just before the note they lead into.
+                    pitch = element.find('pitch')
+                    if pitch is not None and element.find('chord') is None:
+                        midi = (int(pitch.findtext('octave')) + 1) * 12 + STEPS[pitch.findtext('step')] + round(float(pitch.findtext('alter', '0')))
+                        staff = element.findtext('staff', '1')
+                        left = staff == '2' if staves == 2 else clefs.get(staff) == 'F'
+                        out['notes'].append({'measure': index, 'start': pos, 'duration': 0, 'midi': midi, 'grace': True,
+                                             'hand': 'left' if left else 'right', 'art': []})
                     continue
                 duration = int(float(element.findtext('duration', '0'))) * scale
                 start = last_start if element.find('chord') is not None else pos
@@ -386,8 +399,14 @@ def simplify(song_id, title, tempo_scale=1):
             values += [start, min(duration, measure['duration'] - start)]
         resolution = math.gcd(*[v for v in values if v > 0]) or measure['duration'] or tpq
         notes = []
-        for note in sorted(measure['notes'], key=lambda n: (n['start'], n['midi'])):
+        ordered = sorted(enumerate(measure['notes']), key=lambda pair: (
+            pair[1]['start'], not pair[1].get('grace'), pair[0] if pair[1].get('grace') else 0, pair[1]['midi']))
+        for _, note in ordered:
+            if note.get('grace') and note['start'] >= measure['duration']:
+                continue  # a grace note leading into the next measure is rare; skip it
             item = {'start': note['start'], 'duration': min(note['duration'], measure['duration'] - note['start']), 'midi': note['midi']}
+            if note.get('grace'):
+                item['grace'] = True
             if note.get('tied'):
                 item['tied'] = True
             if note['hand'] == 'left':

@@ -42,6 +42,8 @@
   let separateHands = $state(readPref('sheet:separate-hands', false, isBoolean));
   let inverted = $state(readPref('sheet:inverted', false, isBoolean));
   let articulations = $state(readPref('sheet:articulations', true, isBoolean));
+  let modifierPosition = $state(readPref('sheet:modifiers', 'above', (value): value is 'above' | 'below' => value === 'above' || value === 'below'));
+  let autoscroll = $state(readPref('sheet:autoscroll', true, isBoolean));
   let playback = $state(readPref('sheet:playback', true, isBoolean));
   const savedPlaybackInstrument = instruments.find((item) => item.id === readPref('sheet:playback-instrument', '', isString)) ?? instruments[0];
   let playbackInstrumentId = $state(savedPlaybackInstrument.id);
@@ -209,6 +211,16 @@
     player.setInstrument(instruments.find((item) => item.id === id)!);
   }
 
+  function setModifierPosition(value: 'above' | 'below') {
+    modifierPosition = value;
+    writePref('sheet:modifiers', value);
+  }
+
+  function setAutoscroll(value: boolean) {
+    autoscroll = value;
+    writePref('sheet:autoscroll', value);
+  }
+
   function setArticulations(value: boolean) {
     articulations = value;
     writePref('sheet:articulations', value);
@@ -254,7 +266,8 @@
         ontranspose={setTransposed} oninstrument={selectInstrument} onrange={selectRange}
         {margins} onmargin={setMargin} {lineWidths} online={setLineWidth}
         {keyBorder} onkeyborder={setKeyBorder} {separateHands} onseparatehands={setSeparateHands}
-        {inverted} oninverted={setInverted} {articulations} onarticulations={setArticulations} {pedalPosition} onpedal={setPedalPosition}
+        {inverted} oninverted={setInverted} {articulations} onarticulations={setArticulations} {modifierPosition} onmodifiers={setModifierPosition}
+        {autoscroll} onautoscroll={setAutoscroll} {pedalPosition} onpedal={setPedalPosition}
         {playback} onplayback={setPlayback} {playbackInstrumentId} onplaybackinstrument={setPlaybackInstrument} />
       <ViewToggle label="Sheet" shortcut="s" on={showSheet} disabled={settingsOpen} ontoggle={() => toggleView('sheet')}>sheet</ViewToggle>
       <ViewToggle label="Keyboard" shortcut="k" on={showKeyboard} disabled={settingsOpen} ontoggle={() => toggleView('keyboard')}>
@@ -291,7 +304,8 @@
         </section>
       {/if}
       {#if showSheet}
-        <div class="sheet-view"><Sheet {songId} {lineWidths} {separateHands} {inverted} {articulations} {pedalPosition}
+        <div class="sheet-view"><Sheet {songId} {lineWidths} {separateHands} {inverted} {articulations} {modifierPosition} {pedalPosition}
+          follow={autoscroll ? (player.playing ? player.position : metronome.running ? metronome.position : undefined) : undefined}
           playhead={playback ? player.position : undefined} onseek={playback ? (measure) => player.seek(measure) : undefined}
           metronomeHead={metronome.position} {picking} onpick={pickStart} oncancelpick={() => { picking = false; }}
           onsong={(song) => player.load(song)} /></div>

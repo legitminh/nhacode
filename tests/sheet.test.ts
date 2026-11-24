@@ -162,3 +162,45 @@ test('playback velocity follows dynamics and hairpins; staccato, accents and arp
   // The rolled chord enters low to high.
   assert.ok(on('1:0').time < on('1:1').time && on('1:1').time < on('1:2').time);
 });
+
+test('grace notes and rolled chords get their own columns; modifiers mark their lane', () => {
+  const layout = layoutMeasure({ number: '1', duration: 4, resolution: 1, notes: [
+    { start: 1, duration: 0, midi: 60, grace: true },
+    { start: 1, duration: 0, midi: 62, grace: true },
+    { start: 1, duration: 1, midi: 64, art: ['staccato'] },
+    { start: 3, duration: 1, midi: 60, art: ['arpeggio'] },
+    { start: 3, duration: 1, midi: 64, art: ['arpeggio'] },
+  ] });
+  // Frames 0..3; two grace columns before frame 1 and one arpeggio column before frame 3.
+  assert.deepEqual(layout.columnOf, [0, 3, 4, 6, 7]);
+  assert.equal(layout.frames, 7);
+  const at = (midi: number, grace = false) => layout.notes.find((n) => n.midi === midi && n.grace === grace && (grace || n.frame !== 6 || midi !== 60))!;
+  assert.deepEqual(layout.notes.filter((n) => n.grace).map((n) => [n.midi, n.frame]), [[60, 1], [62, 2]]);
+  assert.equal(at(64).frame, 3);
+  assert.ok(layout.mods[octaveOf(64)][at(64).lane]);
+});
+
+test('playback plays grace notes just before the beat, trills alternate, and fermatas pause', async () => {
+  const { Timeline } = await import('../src/lib/sheet/timeline.ts');
+  const song = {
+    id: 's', title: 'S', composer: '', ticksPerQuarter: 1, source: { dataset: 'x', path: 'x' },
+    measures: [{ number: '1', duration: 4, resolution: 1, tempos: [{ start: 0, qpm: 60 }], notes: [
+      { start: 1, duration: 0, midi: 59, grace: true },
+      { start: 1, duration: 1, midi: 60, art: ['trill' as const] },
+      { start: 2, duration: 1, midi: 64, art: ['fermata' as const] },
+      { start: 3, duration: 1, midi: 67 },
+    ] }],
+  };
+  const timeline = new Timeline(song);
+  const grace = timeline.events.find((e) => e.on && e.midi === 59)!;
+  assert.ok(grace.time < 1000 && grace.time > 900);
+  const trill = timeline.events.filter((e) => e.on && e.id.startsWith('0:1~'));
+  assert.ok(trill.length > 10);
+  assert.deepEqual([...new Set(trill.map((e) => e.midi))].sort(), [60, 62]);
+  // The fermata on beat 3 pauses the music: the last note starts after 3 s plus 0.6 s.
+  const last = timeline.events.find((e) => e.on && e.midi === 67)!;
+  assert.equal(last.time, 3600);
+  assert.equal(timeline.duration, 4600);
+  // During the pause the cursor stays on the fermata note.
+  assert.equal(Math.floor(timeline.positionAt(3300).tick), 2);
+});

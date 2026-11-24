@@ -9,12 +9,14 @@ export type SheetNote = {
   digit: string;
   /** Row inside the octave block, counted from the top. */
   lane: number;
-  /** First time frame of the note inside the measure. */
+  /** First column of the note inside the measure (see MeasureLayout.frames). */
   frame: number;
-  /** Number of time frames the note covers (at least 1). */
+  /** Number of columns the note covers (at least 1). */
   frames: number;
   /** A continuation from the previous measure: draw only the hold line. */
   tied: boolean;
+  /** A grace note: its own narrow column just before the note it leads into. */
+  grace: boolean;
   midi: number;
   art: Articulation[];
 };
@@ -25,16 +27,24 @@ export type MeasureLayout = {
   index: number;
   /** Ticks per time frame. */
   resolution: number;
+  /**
+   * Width in columns. Each time frame is one column; grace notes and rolled-chord
+   * marks get extra columns just before the frame they lead into.
+   */
   frames: number;
+  /** columnOf[f] is the column of time frame f (one entry per frame, plus the end). */
+  columnOf: number[];
   /** Lane count for each octave from 0 to the highest octave used. */
   lanes: number[];
+  /** mods[o][lane] is true when a note in that lane carries a modifier that needs its own space. */
+  mods: boolean[][];
   notes: SheetNote[];
   /**
-   * reach[f] is the highest octave sounding (started or held) in time frame f,
-   * or -1 when nothing sounds. Octave line o is drawn over frame f when reach[f] >= o.
+   * reach[c] is the highest octave sounding (started or held) in column c,
+   * or -1 when nothing sounds. Octave line o is drawn over column c when reach[c] >= o.
    */
   reach: number[];
-  /** Score markings, placed on the frame where they start. */
+  /** Score markings, placed on the column where they start. */
   marks: (SongMark & { frame: number })[];
 };
 
@@ -42,8 +52,14 @@ export type StreamLayout = {
   measures: MeasureLayout[];
   /** Lane count for each octave, shared by every measure in the stream. */
   lanes: number[];
+  /** mods[o][lane]: that lane gets extra room for modifiers across the stream. */
+  mods: boolean[][];
   frames: number;
 };
+
+/** Modifiers drawn beside the digit (above or below) and so given their own room. Arpeggios sit to the left. */
+export const hasModifier = (note: Pick<SheetNote, 'art' | 'grace' | 'tied'>) =>
+  !note.tied && (note.grace || note.art.some((art) => art !== 'arpeggio'));
 
 export function octaveOf(midi: number): number {
   return Math.max(0, Math.floor((midi - A0) / 12));
@@ -53,51 +69,114 @@ export function digitOf(midi: number): string {
   return ((((midi - A0) % 12) + 12) % 12).toString(16);
 }
 
+/** The column a tick falls in. */
+export function columnAt(measure: MeasureLayout, tick: number): number {
+  const frame = Math.max(0, Math.min(measure.columnOf.length - 2, Math.floor(tick / measure.resolution)));
+  return measure.columnOf[frame];
+}
+
 /**
  * Lays out one measure. Notes are split into octave blocks; inside a block,
- * any two notes that share a time frame are stacked by ascending pitch
+ * any two notes that share a column are stacked by ascending pitch
  * (lower pitch on a higher row). Notes that do not overlap may share a row.
  */
 export function layoutMeasure(measure: SongMeasure, index = 0): MeasureLayout {
   const resolution = measure.resolution;
-  const frames = Math.max(1, Math.round(measure.duration / resolution));
+  const timeFrames = Math.max(1, Math.round(measure.duration / resolution));
+  const usable = measure.notes.filter((note) => note.midi >= A0 && note.start < measure.duration && (note.grace || note.duration > 0));
+  const frameOf = (tick: number) => Math.min(timeFrames - 1, Math.floor(tick / resolution));
+
+  // Extra columns before a frame: one per grace note (per hand, the longest run) and one for a rolled chord.
+  const pad = Array.from({ length: timeFrames }, () => 0);
+  const graceRuns = new Map<string, number>();
+  for (const note of usable) {
+    if (!note.grace) continue;
+    const key = `${frameOf(note.start)}:${note.hand ?? 'right'}`;
+    graceRuns.set(key, (graceRuns.get(key) ?? 0) + 1);
+  }
+  for (const [key, count] of graceRuns) {
+    const frame = Number(key.split(':')[0]);
+    pad[frame] = Math.max(pad[frame], count);
+  }
+  const rolled = new Set(usable.filter((note) => !note.grace && note.art?.includes('arpeggio')).map((note) => frameOf(note.start)));
+  for (const frame of rolled) pad[frame] += 1;
+  const columnOf: number[] = [];
+  let column = 0;
+  for (let f = 0; f < timeFrames; f++) {
+    column += pad[f];
+    columnOf.push(column);
+    column += 1;
+  }
+  columnOf.push(column);
+  const frames = column;
+
+  // Grace notes count back from their main note's column (before the arpeggio column, if any).
+  const graceColumn = new Map<SongMeasure['notes'][number], number>();
+  const seen = new Map<string, number>();
+  for (const note of usable) {
+    if (!note.grace) continue;
+    const frame = frameOf(note.start);
+    const key = `${frame}:${note.hand ?? 'right'}`;
+    const position = seen.get(key) ?? 0;
+    seen.set(key, position + 1);
+    graceColumn.set(note, columnOf[frame] - (rolled.has(frame) ? 1 : 0) - graceRuns.get(key)! + position);
+  }
+
   const reach = Array.from({ length: frames }, () => -1);
   const placed: SheetNote[] = [];
-  const sorted = [...measure.notes]
-    .filter((note) => note.midi >= A0 && note.duration > 0 && note.start < measure.duration)
-    .sort((a, b) => a.midi - b.midi || a.start - b.start);
-
+  const sorted = [...usable].sort((a, b) => a.midi - b.midi || a.start - b.start);
   for (const note of sorted) {
-    const frame = Math.floor(note.start / resolution);
-    const end = Math.min(frames, Math.max(frame + 1, Math.round((note.start + note.duration) / resolution)));
+    let start: number;
+    let end: number;
+    if (note.grace) {
+      start = graceColumn.get(note)!;
+      end = start + 1;
+    } else {
+      const first = frameOf(note.start);
+      const last = Math.min(timeFrames, Math.max(first + 1, Math.round((note.start + note.duration) / resolution)));
+      start = columnOf[first];
+      end = columnOf[last - 1] + 1;
+    }
     const octave = octaveOf(note.midi);
     // A row below every overlapping lower (or equal, earlier) note of the same octave.
     let lane = 0;
     for (const other of placed) {
-      if (other.octave === octave && other.frame < end && frame < other.frame + other.frames) {
-        lane = Math.max(lane, other.lane + 1);
-      }
+      if (other.octave === octave && other.frame < end && start < other.frame + other.frames) lane = Math.max(lane, other.lane + 1);
     }
-    placed.push({ octave, digit: digitOf(note.midi), lane, frame, frames: end - frame, tied: !!note.tied, midi: note.midi, art: note.art ?? [] });
-    for (let f = frame; f < end; f++) reach[f] = Math.max(reach[f], octave);
+    placed.push({ octave, digit: digitOf(note.midi), lane, frame: start, frames: end - start, tied: !!note.tied,
+      grace: !!note.grace, midi: note.midi, art: note.art ?? [] });
+    for (let c = start; c < end; c++) reach[c] = Math.max(reach[c], octave);
   }
 
   const top = placed.reduce((max, note) => Math.max(max, note.octave), 0);
   const lanes = Array.from({ length: top + 1 }, () => 0);
   for (const note of placed) lanes[note.octave] = Math.max(lanes[note.octave], note.lane + 1);
-  const marks = (measure.marks ?? []).map((mark) => ({ ...mark, frame: Math.min(frames - 1, Math.floor(mark.start / resolution)) }));
-  return { number: measure.number, index, resolution, frames, lanes, notes: placed, reach, marks };
+  const mods = lanes.map((count) => Array.from({ length: count }, () => false));
+  for (const note of placed) if (hasModifier(note)) mods[note.octave][note.lane] = true;
+  const marks = (measure.marks ?? []).map((mark) => ({ ...mark, frame: columnOf[frameOf(mark.start)] }));
+  return { number: measure.number, index, resolution, frames, columnOf, lanes, mods, notes: placed, reach, marks };
 }
 
 /** Shares lane counts across the measures of one stream. */
 function stream(measures: MeasureLayout[]): StreamLayout {
   const lanes: number[] = [];
+  const mods: boolean[][] = [];
   let frames = 0;
   for (const measure of measures) {
     frames += measure.frames;
     measure.lanes.forEach((count, octave) => { lanes[octave] = Math.max(lanes[octave] ?? 0, count); });
+    measure.mods.forEach((row, octave) => row.forEach((mod, lane) => {
+      mods[octave] ??= [];
+      mods[octave][lane] ||= mod;
+    }));
   }
-  return { measures, lanes: Array.from({ length: Math.max(1, lanes.length) }, (_, o) => lanes[o] ?? 0), frames };
+  const octaves = Math.max(1, lanes.length);
+  return {
+    measures,
+    lanes: Array.from({ length: octaves }, (_, o) => lanes[o] ?? 0),
+    mods: Array.from({ length: octaves }, (_, o) => Array.from({ length: lanes[o] ?? 0 }, (_, l) => !!mods[o]?.[l])),
+    frames,
+  };
 }
 
 /** Packs measures into streams that fit `width` time frames; each stream wraps below the previous one. */
@@ -213,7 +292,7 @@ export function layoutPedals(systems: SystemLayout[], measures: SongMeasure[]): 
     for (const layout of stream.measures) {
       const measure = measures[layout.index];
       for (const pedal of measure.pedals ?? []) {
-        const frame = offset + Math.min(layout.frames - 1, Math.floor(pedal.start / layout.resolution));
+        const frame = offset + columnAt(layout, pedal.start);
         if (pedal.type === 'start') {
           if (down) spans.push({ ...down, to: frame, open: false });
           down = { from: frame, changes: [], continued: false };

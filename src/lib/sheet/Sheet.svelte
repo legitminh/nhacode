@@ -1,6 +1,6 @@
 <script lang="ts">
   import { ButtonPositional, Document, InputFrame, StaticButton, create_input_frame, input_frame_manager, min_box, must_view } from '@legitminh/keyflow';
-  import { layoutMarks, layoutPedals, layoutSystems, type MeasureLayout, type StreamLayout } from './layout';
+  import { columnAt, layoutMarks, layoutPedals, layoutSystems, type MeasureLayout, type SheetNote, type StreamLayout } from './layout';
   import type { Song } from './types';
   import { octaveLineColor } from '../colors';
 
@@ -9,11 +9,15 @@
 
   import type { Position } from './timeline';
 
-  let { songId, lineWidths, separateHands = false, inverted = false, articulations = true, pedalPosition = 'below', playhead, metronomeHead, picking = false, onpick, oncancelpick,
+  let { songId, lineWidths, separateHands = false, inverted = false, articulations = true, modifierPosition = 'above', follow, pedalPosition = 'below', playhead, metronomeHead, picking = false, onpick, oncancelpick,
     onseek, onsong }: {
     songId: string; lineWidths: LineWidths; separateHands?: boolean; inverted?: boolean;
     /** Show staccato, accent and fermata above notes and arpeggios left of chords. */
     articulations?: boolean;
+    /** Where note modifiers (staccato, accent, trill, grace cross…) go relative to the digit, whatever the order. */
+    modifierPosition?: 'above' | 'below';
+    /** Autoscroll: keep the line holding this position at the top of the view. */
+    follow?: Position;
     /** Where the sustain-pedal stream goes, when the score has pedal marks. */
     pedalPosition?: 'below' | 'above';
     /** Where playback is; its time frame is highlighted. */
@@ -67,15 +71,54 @@
       .catch(() => { if (songId === id) error = 'Could not load this song.'; });
   });
 
+  // Autoscroll: when the followed cursor reaches another line, bring that line to the top.
+  let streamsBox = $state<HTMLElement>();
+  let followed = -1;
+  $effect(() => {
+    const measure = follow?.measure;
+    if (measure === undefined || !streamsBox) { followed = -1; return; }
+    const line = streamsBox.querySelector(`[data-index="${measure}"]`)?.closest<HTMLElement>('.sheet-stream-box');
+    const index = Number(line?.dataset.system ?? -1);
+    if (!line || index === followed) return;
+    followed = index;
+    line.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  });
+
+  // A lane whose notes carry modifiers gets an extra half row for them, above or below the digit.
+  const MOD = $derived(ROW / 2);
+  function laneHeight(stream: StreamLayout, octave: number, lane: number) {
+    return ROW + (articulations && stream.mods[octave]?.[lane] ? MOD : 0);
+  }
+  function octaveHeight(stream: StreamLayout, octave: number) {
+    let h = 0;
+    for (let lane = 0; lane < stream.lanes[octave]; lane++) h += laneHeight(stream, octave, lane);
+    return h;
+  }
+
   /** Top of the octave block o (just below its line) inside a stream. */
   function blockTop(stream: StreamLayout, octave: number) {
     let y = GAP;
-    for (let o = 0; o < octave; o++) y += stream.lanes[o] * ROW + GAP;
+    for (let o = 0; o < octave; o++) y += octaveHeight(stream, o) + GAP;
     return y;
   }
 
   function streamHeight(stream: StreamLayout) {
-    return blockTop(stream, stream.lanes.length - 1) + stream.lanes[stream.lanes.length - 1] * ROW;
+    const last = stream.lanes.length - 1;
+    return blockTop(stream, last) + octaveHeight(stream, last);
+  }
+
+  /** Where a note's digit and its modifiers sit, after any inversion. */
+  function place(stream: StreamLayout, note: SheetNote, height: number) {
+    let top = blockTop(stream, note.octave);
+    for (let lane = 0; lane < note.lane; lane++) top += laneHeight(stream, note.octave, lane);
+    const h = laneHeight(stream, note.octave, note.lane);
+    const visualTop = inverted ? height - top - h : top;
+    const room = h > ROW;
+    const below = modifierPosition === 'below';
+    return {
+      y: visualTop + (room && !below ? MOD : 0) + ROW / 2,
+      modY: below ? visualTop + ROW + MOD / 2 : visualTop + MOD / 2,
+    };
   }
 
   /** Runs of consecutive frames where octave line o is needed. */
@@ -110,7 +153,7 @@
           <StaticButton keys="escape" on_close={() => oncancelpick?.()}>Cancel</StaticButton>
         </div>
       {/if}
-      <div class="sheet-streams" data-song={song.id} aria-label={`${song.title}, ${song.composer}`}>
+      <div class="sheet-streams" bind:this={streamsBox} data-song={song.id} aria-label={`${song.title}, ${song.composer}`}>
         {#each systems as system, index}
           {@const top = system.hands[0].stream}
           {@const marked = marks[index]}
@@ -184,11 +227,11 @@
                 transform={`translate(${xs[m]} 0)`} onclick={() => onseek?.(measure.index)}>
                 <rect class="measure-hit" x="0" y="0" width={measure.frames * CELL} {height} />
                 {#if playhead && playhead.measure === measure.index}
-                  <rect class="playhead" x={Math.min(measure.frames - 1, Math.floor(playhead.tick / measure.resolution)) * CELL} y="0"
+                  <rect class="playhead" x={columnAt(measure, playhead.tick) * CELL} y="0"
                     width={CELL} {height} />
                 {/if}
                 {#if metronomeHead && metronomeHead.measure === measure.index}
-                  <rect class="metronome-head" x={Math.min(measure.frames - 1, Math.floor(metronomeHead.tick / measure.resolution)) * CELL + 1} y="1"
+                  <rect class="metronome-head" x={columnAt(measure, metronomeHead.tick) * CELL + 1} y="1"
                     width={CELL - 2} height={height - 2} />
                 {/if}
                 {#if m > 0}<line class="barline" x1="0" x2="0" y1="0" y2={height} />{/if}
@@ -202,32 +245,41 @@
                   {/if}
                 {/each}
                 {#each measure.notes as note}
-                  {@const y = flip(blockTop(stream, note.octave) + note.lane * ROW + ROW / 2, height)}
+                  {@const spot = place(stream, note, height)}
+                  {@const y = spot.y}
                   {#if !note.tied}
                     {@const x = note.frame * CELL + CELL / 2}
-                    <text class="sheet-note" data-midi={note.midi} style:fill={octaveLineColor(note.octave)} {x} {y}>{note.digit}</text>
-                    {#if articulations && note.art.length}
-                      {@const above = note.art.filter((a) => a !== 'arpeggio')}
-                      {@const size = CELL * .45}
-                      {@const top = y - ROW * .43}
-                      <g class="articulations" data-art={note.art.join(' ')} style:stroke={octaveLineColor(note.octave)} style:fill={octaveLineColor(note.octave)}>
-                        {#each above as art, i}
-                          {@const ax = x + (i - (above.length - 1) / 2) * size * 1.15}
+                    <text class="sheet-note" class:grace={note.grace} data-midi={note.midi} style:fill={octaveLineColor(note.octave)} {x} {y}>{note.digit}</text>
+                    {#if articulations && (note.art.length || note.grace)}
+                      {@const marks = [...(note.grace ? ['grace'] : []), ...note.art.filter((a) => a !== 'arpeggio')]}
+                      {@const size = Math.min(CELL * .85, MOD * .85)}
+                      {@const my = spot.modY}
+                      <g class="articulations" data-art={[...(note.grace ? ['grace'] : []), ...note.art].join(' ')}
+                        style:stroke={octaveLineColor(note.octave)} style:fill={octaveLineColor(note.octave)}>
+                        {#each marks as art, i}
+                          {@const ax = x + (i - (marks.length - 1) / 2) * size * 1.15}
                           {#if art === 'staccato'}
-                            <circle class="art-staccato" cx={ax} cy={top} r={size * .17} />
+                            <circle class="art-staccato" cx={ax} cy={my} r={size * .12} />
+                          {:else if art === 'tenuto'}
+                            <line class="art-tenuto" x1={ax - size / 2} x2={ax + size / 2} y1={my} y2={my} />
                           {:else if art === 'accent'}
-                            <polyline class="art-accent" fill="none" points={`${ax - size / 2},${top - size / 3} ${ax + size / 2},${top} ${ax - size / 2},${top + size / 3}`} />
+                            <polyline class="art-accent" fill="none" points={`${ax - size / 2},${my - size / 3} ${ax + size / 2},${my} ${ax - size / 2},${my + size / 3}`} />
                           {:else if art === 'fermata'}
-                            <path class="art-fermata" fill="none" d={`M ${ax - size / 2} ${top + size / 4} A ${size / 2} ${size / 2} 0 0 1 ${ax + size / 2} ${top + size / 4}`} />
-                            <circle cx={ax} cy={top + size / 6} r={size * .1} />
+                            <path class="art-fermata" fill="none" d={`M ${ax - size / 2} ${my + size / 4} A ${size / 2} ${size / 2} 0 0 1 ${ax + size / 2} ${my + size / 4}`} />
+                            <circle cx={ax} cy={my + size / 6} r={size * .1} />
+                          {:else if art === 'trill'}
+                            <text class="art-trill" x={ax} y={my} font-size={size * 1.1}>tr</text>
+                          {:else if art === 'grace'}
+                            <!-- Squished cross: a grace note takes (almost) no time. -->
+                            <path class="art-grace" fill="none" d={`M ${ax - size / 2} ${my - size / 5} L ${ax + size / 2} ${my + size / 5} M ${ax - size / 2} ${my + size / 5} L ${ax + size / 2} ${my - size / 5}`} />
                           {/if}
                         {/each}
                         {#if note.art.includes('arpeggio')}
-                          <!-- Just left of the digit (a glyph is about one frame wide), so it never touches it. -->
-                          {@const ax = x - CELL * .64}
+                          <!-- A rolled chord gets its own column just before the chord. -->
+                          {@const ax = x - CELL}
                           {@const h = ROW / 2 - 1}
                           <path class="art-arpeggio" fill="none"
-                            d={`M ${ax} ${y - h} q ${CELL * .1} ${h / 4} 0 ${h / 2} q ${-CELL * .1} ${h / 4} 0 ${h / 2} q ${CELL * .1} ${h / 4} 0 ${h / 2} q ${-CELL * .1} ${h / 4} 0 ${h / 2}`} />
+                            d={`M ${ax} ${y - h} q ${CELL * .15} ${h / 4} 0 ${h / 2} q ${-CELL * .15} ${h / 4} 0 ${h / 2} q ${CELL * .15} ${h / 4} 0 ${h / 2} q ${-CELL * .15} ${h / 4} 0 ${h / 2}`} />
                         {/if}
                       </g>
                     {/if}
@@ -305,7 +357,8 @@
   .articulations { stroke-width: 1.5; }
   .sheet-pedal { display: block; overflow: visible; }
   .pedal-span line, .pedal-span polyline { stroke: currentColor; stroke-width: 1.5; }
-  .articulations polyline, .articulations path { stroke-linecap: round; stroke-linejoin: round; }
+  .articulations polyline, .articulations path, .articulations line { stroke-linecap: round; stroke-linejoin: round; }
+  .art-trill { stroke: none; font-style: italic; font-weight: bold; text-anchor: middle; dominant-baseline: central; font-family: serif; }
   .metronome-head { fill: none; stroke: var(--primary); stroke-width: 2; stroke-dasharray: 4 3; }
   .sheet-hands { position: relative; }
   .pick-layer { position: absolute; inset: 0; pointer-events: none; z-index: 1; }

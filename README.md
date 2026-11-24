@@ -91,8 +91,17 @@ The toolbar reads, left to right: **playback** (O), ▶/⏸ (P), the song title 
   via **Sheet pane → Pedal**. Playback presses and lifts the pedal too.
 - **playback** and **metronome** each have a Keyflow `HorizontalSlider` for speed
   (×0.25–×2, step 0.05), remembered per browser.
-- **Sheet pane → Articulations** (on by default) shows staccato dots, accents and
-  fermatas directly above a note's digit, and a wavy arpeggio line left of a chord.
+- **Sheet pane → Articulations** (on by default) shows note modifiers: staccato
+  dots, tenuto lines, accents, trills (*tr*), fermatas and, on grace notes, a
+  squished cross (they take almost no time). A lane with modifiers gets an extra
+  half row for them, above the digit by default or below via **Modifiers**,
+  whatever the order. Grace notes get their own columns just before the note they
+  lead into, and a rolled chord gets a column for its wavy arpeggio line.
+- Playback plays grace notes quickly just before the beat, alternates trills with
+  the note a whole step up, leans on tenuto notes, and pauses on fermatas (the
+  metronome pauses with it).
+- **Sheet pane → Autoscroll** (on by default) keeps the line holding the playback
+  or metronome cursor at the top of the view.
 - Playback, instrument and metronome settings are saved in the browser. Its search
 box is Keyflow's `TextBox`: the screen opens with its tag and song shortcuts live,
 **/** starts typing (results filter as you type), Escape stops typing, and Enter

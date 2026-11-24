@@ -481,3 +481,52 @@ test('playback and metronome menus have Keyflow speed sliders that are remembere
   expect(await page.evaluate(() => [localStorage.getItem('nhacode:sheet:playback-speed'),
     JSON.parse(localStorage.getItem('nhacode:sheet:metronome')!).speed])).toEqual(['0.9', 1.05]);
 });
+
+test('modifiers get their own room above (or below) the digit, whatever the order', async ({ page }) => {
+  await page.evaluate(() => localStorage.setItem('nhacode:song', '"nocturne-op9-2"'));
+  await page.reload();
+  await page.getByRole('button', { name: /^Sheet/ }).click();
+  const relation = () => page.locator('.articulations[data-art~="grace"]').first().evaluate((group) => {
+    const digit = group.previousElementSibling!.getBoundingClientRect();
+    const mark = group.getBoundingClientRect();
+    return mark.bottom <= digit.top + 2 ? 'above' : mark.top >= digit.bottom - 2 ? 'below' : 'overlap';
+  });
+  await expect(page.locator('.art-grace').first()).toBeAttached();
+  expect(await relation()).toBe('above');
+  await paneMenu(page, 'Sheet');
+  await page.getByRole('button', { name: /Order: Normal/ }).click();
+  await closeSettings(page);
+  expect(await relation()).toBe('above'); // inversion does not move modifiers
+  await paneMenu(page, 'Sheet');
+  await page.getByRole('button', { name: /Modifiers: Above/ }).click();
+  await closeSettings(page);
+  expect(await relation()).toBe('below');
+  // Grace notes have their own columns: no two digits in a lane share a column.
+  const clash = await page.locator('.sheet-stream').first().evaluate((svg) => {
+    const seen = new Set<string>();
+    for (const text of svg.querySelectorAll('.sheet-note')) {
+      const key = `${text.closest('[data-index]')!.getAttribute('data-index')}:${text.getAttribute('x')}:${text.getAttribute('y')}`;
+      if (seen.has(key)) return key;
+      seen.add(key);
+    }
+    return '';
+  });
+  expect(clash).toBe('');
+});
+
+test('autoscroll keeps the playback line at the top of the view', async ({ page }) => {
+  await page.getByRole('button', { name: /^Sheet/ }).click();
+  await page.getByRole('button', { name: /^Keyboard/ }).click();
+  // Move the playhead to a measure far down the sheet (clicking it), with the view at the top.
+  await expect(page.locator('.sheet-measure[data-index="60"]').first()).toBeAttached();
+  await page.locator('.sheet-measure[data-index="60"]').first().dispatchEvent('click');
+  await page.locator('.sheet-scroll .viewport').evaluate((viewport) => viewport.scrollTo(0, 0));
+  await page.keyboard.press('p');
+  const top = () => page.evaluate(() => {
+    const viewport = document.querySelector('.sheet-scroll .viewport')!.getBoundingClientRect().top;
+    const line = document.querySelector('.playhead')?.closest('.sheet-stream-box');
+    return line ? Math.round(line.getBoundingClientRect().top - viewport) : 9999;
+  });
+  await expect.poll(top, { timeout: 5000 }).toBeLessThan(5);
+  await page.keyboard.press('p');
+});

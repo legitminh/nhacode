@@ -8,11 +8,13 @@ export type SongNote = {
   tied?: boolean;
   /** Which hand plays it; omitted means the right hand. */
   hand?: 'left';
+  /** A grace note: no written duration, played quickly just before the note it leads into. */
+  grace?: boolean;
   /** Articulations from the score. */
   art?: Articulation[];
 };
 
-export type Articulation = 'staccato' | 'accent' | 'fermata' | 'arpeggio';
+export type Articulation = 'staccato' | 'tenuto' | 'accent' | 'trill' | 'fermata' | 'arpeggio';
 
 /** A score marking: time signature, tempo, dynamic, hairpin (crescendo/diminuendo/stop) or a short direction. */
 export type SongMark = { start: number; kind: 'time' | 'tempo' | 'dynamic' | 'wedge' | 'words'; text: string };
