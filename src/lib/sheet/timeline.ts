@@ -206,7 +206,8 @@ export class Timeline {
       const compound = type === 8 && beats > 3 && beats % 3 === 0;
       const beat = (tpq * 4 / type) * (compound ? 3 : 1);
       const full = beats * tpq * 4 / type;
-      const pickup = m === 0 && measure.duration < full; // other short measures lose their end, not their start
+      // A pickup (or a played copy of it) lines up with its end; other short measures lose their end.
+      const pickup = (m === 0 || !!measure.pickup) && measure.duration < full;
       const offset = pickup ? measure.duration % beat : 0;
       for (let tick = offset; tick < measure.duration; tick += beat) {
         const at = (t: number, kind: Click['kind']) =>

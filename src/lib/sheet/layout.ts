@@ -1,4 +1,7 @@
 import type { Articulation, SongMark, SongMeasure } from './types';
+import { fullLengths, sectionLabel, type DisplayItem } from './repeats.ts';
+
+export { fullLengths };
 
 /** A0 is the lowest key; octaves start at A, matching the piano grid. */
 const A0 = 21;
@@ -26,8 +29,16 @@ export type SheetNote = {
 
 export type MeasureLayout = {
   number: string;
-  /** Index of the measure in the song. */
+  /** Index of the played measure a click on this measure seeks to (see repeats.ts). */
   index: number;
+  /** Every played-measure index this measure stands for: the playhead and autoscroll find it by them. */
+  plays: number[];
+  /** A programmatic § measure: the label of the section it replays. One column, no notes. */
+  section?: string;
+  /** Traditional mode: the score's repeat barlines, ending and navigation marks on this measure. */
+  repeat?: SongMeasure['repeat'];
+  ending?: number[];
+  jump?: SongMeasure['jump'];
   /** Ticks per time frame. */
   resolution: number;
   /**
@@ -51,8 +62,11 @@ export type MeasureLayout = {
    */
   reach: number[];
   /** Score markings, placed on the column where they start. */
-  marks: (SongMark & { frame: number })[];
+  marks: MeasureMark[];
 };
+
+/** A marking on a measure column; 'section' is a programmatic `[§ id` or `]`. */
+export type MeasureMark = { start: number; kind: SongMark['kind'] | 'section'; text: string; frame: number };
 
 export type StreamLayout = {
   measures: MeasureLayout[];
@@ -83,11 +97,10 @@ export function columnAt(measure: MeasureLayout, tick: number): number {
  * a column added for one hand's grace note or rolled chord is a skip in the other hand.
  * Vertical placement happens per stream, in `stackStream`.
  */
-export function layoutMeasure(measure: SongMeasure, index = 0, hand?: 'left' | 'right', full = measure.duration): MeasureLayout {
+export function layoutMeasure(measure: SongMeasure, index = 0, hand?: 'left' | 'right', full = measure.duration, pickup = index === 0): MeasureLayout {
   const resolution = measure.resolution;
   const timeFrames = Math.max(1, Math.round(measure.duration / resolution));
   const missing = Math.max(0, Math.round((full - measure.duration) / resolution));
-  const pickup = index === 0;
   const usable = measure.notes.filter((note) => note.midi >= A0 && note.start < measure.duration && (note.grace || note.duration > 0));
   const frameOf = (tick: number) => Math.min(timeFrames - 1, Math.floor(tick / resolution));
   const handOf = (note: SongMeasure['notes'][number]) => note.hand ?? 'right';
@@ -160,8 +173,8 @@ export function layoutMeasure(measure: SongMeasure, index = 0, hand?: 'left' | '
     }
   }
 
-  const marks = (measure.marks ?? []).map((mark) => ({ ...mark, frame: columnOf[frameOf(mark.start)] }));
-  return { number: measure.number, index, resolution, frames, columnOf, deleted, notes: placed, reach, marks };
+  const marks: MeasureMark[] = (measure.marks ?? []).map((mark) => ({ ...mark, frame: columnOf[frameOf(mark.start)] }));
+  return { number: measure.number, index, plays: [index], resolution, frames, columnOf, deleted, notes: placed, reach, marks };
 }
 
 /** Sizes (in px) for stacking a stream's columns. */
@@ -274,25 +287,51 @@ export type SystemLayout = { hands: { hand: Hand; stream: StreamLayout }[] };
  * Lays out a song as systems. With `separate`, each measure is laid out once per hand
  * (same columns, so a column is the same moment in both hands) and both hands wrap at the same measures.
  */
-/**
- * The full length of each measure in ticks, from the time signatures (a measure keeps the
- * last one set; 4/4 until then). A measure shorter than this has deleted time frames.
- */
-export function fullLengths(measures: SongMeasure[], ticksPerQuarter: number): number[] {
-  let meter: [number, number] = [4, 4];
-  return measures.map((measure) => {
-    if (measure.time) meter = measure.time;
-    return Math.max(measure.duration, meter[0] * ticksPerQuarter * 4 / meter[1]);
-  });
+/** Navigation words (D.C., D.S., Fine, Coda…), shown only in traditional mode. */
+const NAVIGATION = /^\s*(d\.\s*c\.|d\.\s*s\.|da capo|dal segno|fine\b|to coda|al coda|coda\b)/i;
+
+/** Lays out one display item (a measure, or one hand of it, or a § measure). */
+function layoutItem(item: DisplayItem, hand?: 'left' | 'right'): MeasureLayout {
+  if (item.kind === 'section') {
+    return { number: '§', index: item.index, plays: item.plays, section: sectionLabel(item.id), resolution: 1, frames: 1,
+      columnOf: [0, 1], deleted: [], notes: [], reach: [-1], marks: [] };
+  }
+  const layout = layoutMeasure(item.measure, item.index, hand, item.full, item.pickup);
+  layout.plays = item.plays;
+  if (item.traditional) {
+    layout.repeat = item.measure.repeat;
+    layout.ending = item.measure.ending;
+    layout.jump = item.measure.jump;
+    const jump = item.measure.jump ?? {};
+    const has = (pattern: RegExp) => layout.marks.some((mark) => pattern.test(mark.text));
+    const first = layout.columnOf[0];
+    const last = layout.columnOf.at(-2)!;
+    if (jump.segno && !has(/𝄋|segno/i)) layout.marks.unshift({ start: 0, kind: 'words', text: '𝄋', frame: first });
+    if (jump.coda && !has(/𝄌|coda/i)) layout.marks.unshift({ start: 0, kind: 'words', text: '𝄌', frame: first });
+    if (jump.toCoda && !has(/coda/i)) layout.marks.push({ start: 0, kind: 'words', text: 'To Coda 𝄌', frame: last });
+    if (jump.fine && !has(/fine/i)) layout.marks.push({ start: 0, kind: 'words', text: 'Fine', frame: last });
+    if (jump.dacapo && !has(/d\.\s*c\.|da capo/i)) layout.marks.push({ start: 0, kind: 'words', text: 'D.C.', frame: last });
+    if (jump.dalsegno && !has(/d\.\s*s\.|dal segno/i)) layout.marks.push({ start: 0, kind: 'words', text: 'D.S.', frame: last });
+  } else {
+    layout.marks = layout.marks.filter((mark) => !(mark.kind === 'words' && NAVIGATION.test(mark.text)));
+  }
+  // Programmatic: "[" right above the section's first time frame, "]" above its last.
+  for (const id of item.opens) layout.marks.push({ start: 0, kind: 'section', text: `[§ ${sectionLabel(id)}`, frame: layout.columnOf[0] });
+  for (const id of item.closes) layout.marks.push({ start: 0, kind: 'section', text: ']', frame: layout.columnOf.at(-2)! });
+  return layout;
 }
 
-export function layoutSystems(measures: SongMeasure[], width: number, separate: boolean, ticksPerQuarter?: number): SystemLayout[] {
-  const full = ticksPerQuarter ? fullLengths(measures, ticksPerQuarter) : measures.map((measure) => measure.duration);
+/**
+ * Lays out display items (see repeats.ts) as systems. With `separate`, each measure is laid
+ * out once per hand (same columns, so a column is the same moment in both hands) and both
+ * hands wrap at the same measures.
+ */
+export function layoutItems(items: DisplayItem[], width: number, separate: boolean): SystemLayout[] {
   if (!separate) {
-    return layoutStreams(measures.map((measure, index) => layoutMeasure(measure, index, undefined, full[index])), width).map((s) => ({ hands: [{ hand: 'both', stream: s }] }));
+    return layoutStreams(items.map((item) => layoutItem(item)), width).map((s) => ({ hands: [{ hand: 'both', stream: s }] }));
   }
-  const right = measures.map((measure, index) => layoutMeasure(measure, index, 'right', full[index]));
-  const left = measures.map((measure, index) => layoutMeasure(measure, index, 'left', full[index]));
+  const right = items.map((item) => layoutItem(item, 'right'));
+  const left = items.map((item) => layoutItem(item, 'left'));
   let index = 0;
   return layoutStreams(right, width).map((rightStream) => {
     const count = rightStream.measures.length;
@@ -302,20 +341,31 @@ export function layoutSystems(measures: SongMeasure[], width: number, separate: 
   });
 }
 
-export type MarkText = { frame: number; parts: { kind: SongMark['kind']; text: string }[]; row: number };
+/** Lays out a song's measures as written (no repeats), as systems; see layoutItems. */
+export function layoutSystems(measures: SongMeasure[], width: number, separate: boolean, ticksPerQuarter?: number): SystemLayout[] {
+  const full = ticksPerQuarter ? fullLengths(measures, ticksPerQuarter) : measures.map((measure) => measure.duration);
+  return layoutItems(measures.map((measure, index): DisplayItem => ({ kind: 'measure', measure, source: index, index, plays: [index],
+    full: full[index], pickup: index === 0, traditional: false, opens: [], closes: [] })), width, separate);
+}
+
+export type MarkText = { frame: number; parts: { kind: MeasureMark['kind']; text: string }[]; row: number };
+/** A traditional ending bracket ("1.", "2."…) over measures; `closed` drops a tick at its end (before a repeat). */
+export type Volta = { label: string; from: number; to: number; closed: boolean; row: number };
 export type Hairpin = { kind: 'crescendo' | 'diminuendo'; from: number; to: number; continued: boolean; open: boolean; row: number };
 /** Markings for one system, in stream frames: texts plus hairpins (which may continue across systems). */
-export type SystemMarks = { texts: MarkText[]; hairpins: Hairpin[]; rows: number };
+export type SystemMarks = { texts: MarkText[]; hairpins: Hairpin[]; voltas: Volta[]; rows: number };
 
 /** Frames a marking text covers: one monospace glyph is about one frame (half a min-box) wide. */
 export const textFrames = (text: MarkText) => text.parts.map((part) => part.text).join(' ').length;
 
 /** Moves markings that would overlap onto further rows below; returns the row count. */
-function stackRows(texts: MarkText[], hairpins: Hairpin[]): number {
+function stackRows(texts: MarkText[], hairpins: Hairpin[], voltas: Volta[] = []): number {
+  // Section brackets go below other markings that start on the same frame.
   const items = [
-    ...texts.map((text) => ({ item: text, from: text.frame, to: text.frame + textFrames(text) + 1 })),
-    ...hairpins.map((pin) => ({ item: pin, from: pin.from, to: Math.max(pin.to, pin.from + 2) })),
-  ].sort((a, b) => a.from - b.from);
+    ...texts.map((text) => ({ item: text, from: text.frame, to: text.frame + textFrames(text) + 1, rank: text.parts[0].kind === 'section' ? 1 : 0 })),
+    ...hairpins.map((pin) => ({ item: pin, from: pin.from, to: Math.max(pin.to, pin.from + 2), rank: 0 })),
+    ...voltas.map((volta) => ({ item: volta, from: volta.from, to: volta.to, rank: 0 })),
+  ].sort((a, b) => a.from - b.from || a.rank - b.rank);
   const ends: number[] = [];
   for (const { item, from, to } of items) {
     let row = ends.findIndex((end) => end <= from);
@@ -333,14 +383,24 @@ export function layoutMarks(systems: SystemLayout[]): SystemMarks[] {
     const stream = system.hands[0].stream;
     const texts: MarkText[] = [];
     const hairpins: Hairpin[] = [];
+    const voltas: Volta[] = [];
     if (open) open = { ...open, from: 0, continued: true };
     let offset = 0;
     for (const measure of stream.measures) {
+      if (measure.ending) {
+        const label = `${measure.ending.join(', ')}.`;
+        const previous = voltas.at(-1);
+        if (previous && previous.label === label && previous.to === offset) previous.to = offset + measure.frames;
+        else voltas.push({ label, from: offset, to: offset + measure.frames, closed: false, row: 0 });
+        voltas.at(-1)!.closed = !!measure.repeat?.end;
+      }
       for (const mark of measure.marks) {
         const frame = offset + mark.frame;
-        if (mark.kind !== 'wedge') {
+        if (mark.kind === 'section') {
+          texts.push({ frame, parts: [{ kind: mark.kind, text: mark.text }], row: 0 });
+        } else if (mark.kind !== 'wedge') {
           const previous = texts.at(-1);
-          if (previous && previous.frame === frame) previous.parts.push({ kind: mark.kind, text: mark.text });
+          if (previous && previous.frame === frame && previous.parts[0].kind !== 'section') previous.parts.push({ kind: mark.kind, text: mark.text });
           else texts.push({ frame, parts: [{ kind: mark.kind, text: mark.text }], row: 0 });
         } else if (mark.text === 'stop') {
           if (open) hairpins.push({ kind: open.kind, from: open.from, to: frame + 1, continued: open.continued, open: false, row: 0 });
@@ -355,14 +415,17 @@ export function layoutMarks(systems: SystemLayout[]): SystemMarks[] {
     if (open) hairpins.push({ kind: open.kind, from: open.from, to: stream.frames, continued: open.continued, open: true, row: 0 });
     // Keep text inside the line: a marking near the right edge slides left to fit.
     for (const text of texts) text.frame = Math.max(0, Math.min(text.frame, stream.frames - textFrames(text)));
-    return { texts, hairpins, rows: stackRows(texts, hairpins) };
+    return { texts, hairpins, voltas, rows: stackRows(texts, hairpins, voltas) };
   });
 }
 
 /** One pedal-down span on a line, in frames; `continued`/`open` when it crosses a line break. */
 export type PedalSpan = { from: number; to: number; changes: number[]; continued: boolean; open: boolean };
 
-/** Lays out the sustain pedal for each system; a pedal held across a line break continues on the next. */
+/**
+ * Lays out the sustain pedal for each system; a pedal held across a line break continues on the next.
+ * `measures` are indexed by each layout's `index` (the played measures, when laid out from display items).
+ */
 export function layoutPedals(systems: SystemLayout[], measures: SongMeasure[]): PedalSpan[][] {
   let down: { from: number; changes: number[]; continued: boolean } | undefined;
   return systems.map((system) => {
@@ -372,6 +435,7 @@ export function layoutPedals(systems: SystemLayout[], measures: SongMeasure[]): 
     let offset = 0;
     for (const layout of stream.measures) {
       const measure = measures[layout.index];
+      if (!measure || layout.section) { offset += layout.frames; continue; }
       for (const pedal of measure.pedals ?? []) {
         const frame = offset + columnAt(layout, pedal.start);
         if (pedal.type === 'start') {

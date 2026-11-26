@@ -5,9 +5,10 @@
   import { MARGIN_MAX, MARGIN_STEP, SIDES, type Margins, type Side } from './margins';
   import { KEY_BORDER_MAX, LINE_MAX, LINE_MIN, LINE_STEP, type LineWidths } from './sheet/lines';
   import BoxInput from './BoxInput.svelte';
+  import { REPEAT_MODES, REPEAT_NAMES, type RepeatMode } from './sheet/repeats';
 
   let { open = $bindable(false), transposed, instrumentId, range, margins, lineWidths,
-    ontranspose, oninstrument, onrange, onmargin, online, keyBorder, onkeyborder, separateHands, onseparatehands, inverted, oninverted, articulations, onarticulations, modifierPosition, onmodifiers, autoscroll, onautoscroll, pedalPosition, onpedal,
+    ontranspose, oninstrument, onrange, onmargin, online, keyBorder, onkeyborder, separateHands, onseparatehands, repeatMode, onrepeatmode, inverted, oninverted, articulations, onarticulations, modifierPosition, onmodifiers, autoscroll, onautoscroll, pedalPosition, onpedal,
     playback, onplayback, playbackInstrumentId, onplaybackinstrument }: {
     open?: boolean;
     transposed: boolean;
@@ -24,6 +25,8 @@
     onkeyborder: (value: number) => void;
     separateHands: boolean;
     onseparatehands: (value: boolean) => void;
+    repeatMode: RepeatMode;
+    onrepeatmode: (value: RepeatMode) => void;
     inverted: boolean;
     oninverted: (value: boolean) => void;
     articulations: boolean;
@@ -141,6 +144,8 @@
       <SubKeyframe label="Sheet pane" class="margin-menu pane-menu">
         {#snippet children(sh)}
           <Button on_close={() => onseparatehands(!separateHands)}>Hands: {separateHands ? 'Separate' : 'Together'}</Button>
+          <Button on_close={() => onrepeatmode(REPEAT_MODES[(REPEAT_MODES.indexOf(repeatMode) + 1) % REPEAT_MODES.length])}
+            >Repetition: {REPEAT_NAMES[repeatMode]}</Button>
           <Button on_close={() => oninverted(!inverted)}>Order: {inverted ? 'Inverted' : 'Normal'}</Button>
           <Button on_close={() => onarticulations(!articulations)}>Articulations: {articulations ? 'On' : 'Off'}</Button>
           <Button on_close={() => onmodifiers(modifierPosition === 'above' ? 'below' : 'above')}

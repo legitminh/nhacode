@@ -327,6 +327,20 @@ def parse_score(xml):
                     ending = [int(n) for n in re.findall(r'\d+', volta.get('number', '1'))] or [1]
             if ending:
                 out.setdefault('ending', ending)
+            # Navigation: segno and coda mark where a jump lands; Fine, To Coda, D.C. and D.S. act at the measure's end.
+            jump = out.get('jump', {})
+            for sound in measure.iter('sound'):
+                for attribute, flag in (('segno', 'segno'), ('coda', 'coda'), ('fine', 'fine'), ('tocoda', 'toCoda'),
+                                        ('dacapo', 'dacapo'), ('dalsegno', 'dalsegno')):
+                    if sound.get(attribute) and sound.get(attribute) != 'no':
+                        jump[flag] = True
+            for kind in measure.iter('direction-type'):
+                if kind.find('segno') is not None:
+                    jump['segno'] = True
+                if kind.find('coda') is not None and not jump.get('toCoda'):
+                    jump['coda'] = True
+            if jump:
+                out['jump'] = jump
             for barline in measure.findall('barline'):
                 volta = barline.find('ending')
                 if volta is not None and volta.get('type') in ('stop', 'discontinue'):
@@ -476,6 +490,8 @@ def simplify(song_id, title, tempo_scale=1, measure_lengths=None):
             item['repeat'] = measure['repeat']
         if measure.get('ending'):
             item['ending'] = measure['ending']
+        if measure.get('jump'):
+            item['jump'] = measure['jump']
         out_measures.append(item)
 
     song = {

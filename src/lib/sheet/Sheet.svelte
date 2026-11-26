@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ButtonPositional, Document, InputFrame, StaticButton, create_input_frame, input_frame_manager, min_box, must_view } from '@legitminh/keyflow';
-  import { columnAt, layoutMarks, layoutPedals, layoutSystems, stackStream, type SheetNote, type StackedStream, type StreamLayout } from './layout';
+  import { expandSong, displayItems, type RepeatMode } from './repeats';
+  import { columnAt, layoutItems, layoutMarks, layoutPedals, stackStream, type SheetNote, type StackedStream, type StreamLayout } from './layout';
   import type { Song } from './types';
   import { octaveLineColor } from '../colors';
 
@@ -9,9 +10,11 @@
 
   import type { Position } from './timeline';
 
-  let { songId, lineWidths, separateHands = false, inverted = false, articulations = true, modifierPosition = 'above', follow, pedalPosition = 'below', playhead, metronomeHead, picking = false, onpick, oncancelpick,
+  let { songId, lineWidths, separateHands = false, repeatMode = 'expand', inverted = false, articulations = true, modifierPosition = 'above', follow, pedalPosition = 'below', playhead, metronomeHead, picking = false, onpick, oncancelpick,
     onseek, onsong }: {
     songId: string; lineWidths: LineWidths; separateHands?: boolean; inverted?: boolean;
+    /** How repeated sections are shown; playback always follows them. */
+    repeatMode?: RepeatMode;
     /** Show staccato, accent and fermata above notes and arpeggios left of chords. */
     articulations?: boolean;
     /** Where note modifiers (staccato, accent, trill, grace cross…) go relative to the digit, whatever the order. */
@@ -30,6 +33,7 @@
     oncancelpick?: () => void;
     /** Clicking a measure moves the playhead there. */
     onseek?: (measure: number) => void;
+    /** Called with the song as played: its measures in play order, repeats written out. */
     onsong?: (song: Song | undefined) => void;
   } = $props();
 
@@ -44,10 +48,12 @@
   let song = $state<Song | undefined>();
   let error = $state('');
   let width = $state(0);
-  const systems = $derived(song ? layoutSystems(song.measures, Math.max(1, Math.floor((width - 16) / CELL)), separateHands, song.ticksPerQuarter) : []);
+  const systems = $derived(song ? layoutItems(displayItems(song, repeatMode), Math.max(1, Math.floor((width - 16) / CELL)), separateHands) : []);
   const marks = $derived(layoutMarks(systems));
   const hasPedal = $derived(!!song?.measures.some((measure) => measure.pedals?.length));
-  const pedals = $derived(song && hasPedal ? layoutPedals(systems, song.measures) : []);
+  // Pedal marks come from the played measures (a measure's index is its played index).
+  const played = $derived(song ? expandSong(song).song : undefined);
+  const pedals = $derived(played && hasPedal ? layoutPedals(systems, played.measures) : []);
   const HAND_NAMES: Record<string, string> = { right: 'Right hand', left: 'Left hand' };
   /** Inverted order mirrors each stream vertically: octave 0 and its border go to the bottom. */
   const flip = (y: number, height: number) => (inverted ? height - y : y);
@@ -67,7 +73,7 @@
     song = undefined;
     error = '';
     if (!load) return;
-    load().then((value) => { if (songId === id) { song = value; onsong?.(value); } })
+    load().then((value) => { if (songId === id) { song = value; onsong?.(expandSong(value).song); } })
       .catch(() => { if (songId === id) error = 'Could not load this song.'; });
   });
 
@@ -77,7 +83,7 @@
   $effect(() => {
     const measure = follow?.measure;
     if (measure === undefined || !streamsBox) { followed = -1; return; }
-    const line = streamsBox.querySelector(`[data-index="${measure}"]`)?.closest<HTMLElement>('.sheet-stream-box');
+    const line = streamsBox.querySelector(`.sheet-measure[data-plays~="${measure}"]`)?.closest<HTMLElement>('.sheet-stream-box');
     const index = Number(line?.dataset.system ?? -1);
     if (!line || index === followed) return;
     followed = index;
@@ -101,6 +107,22 @@
       y: visualTop + (room && !below ? MOD : 0) + ROW / 2,
       modY: below ? visualTop + ROW + MOD / 2 : visualTop + MOD / 2,
     };
+  }
+
+  /** The origin line's runs: it breaks at § measures, which sit right on the stream's border. */
+  function originRuns(stream: StreamLayout) {
+    const runs: [number, number][] = [];
+    let x = 0;
+    for (const measure of stream.measures) {
+      const end = x + measure.frames * CELL;
+      if (!measure.section) {
+        const last = runs.at(-1);
+        if (last && last[1] === x) last[1] = end;
+        else runs.push([x, end]);
+      }
+      x = end;
+    }
+    return runs;
   }
 
   function offsets(stream: StreamLayout) {
@@ -135,6 +157,14 @@
               {#each marked.texts as mark}
                 <text class="sheet-mark" data-row={mark.row} x={mark.frame * CELL} y={mark.row * ROW + ROW / 2}
                   >{#each mark.parts as part, i}<tspan class="sheet-mark-part" data-kind={part.kind}>{i ? ' ' : ''}{part.text}</tspan>{/each}</text>
+              {/each}
+              {#each marked.voltas as volta}
+                {@const x1 = volta.from * CELL + 2}
+                {@const x2 = volta.to * CELL - 3}
+                {@const y1 = volta.row * ROW + ROW * .9}
+                {@const y0 = volta.row * ROW + ROW * .1}
+                <polyline class="volta" fill="none" points={`${x1},${y1} ${x1},${y0} ${x2},${y0}${volta.closed ? ` ${x2},${y1}` : ''}`} />
+                <text class="sheet-mark volta-label" x={x1 + CELL / 3} y={volta.row * ROW + ROW * .55}>{volta.label}</text>
               {/each}
               {#each marked.hairpins as pin}
                 {@const x1 = pin.from * CELL + CELL / 4}
@@ -197,6 +227,16 @@
               {/each}
             </svg>
           {/if}
+          {#each offsets(top) as x, m}
+            {@const section = top.measures[m].section}
+            {#if section}
+              <!-- A § measure: § over the section id's digits, on the stream's border; not a chord. -->
+              <div class="section-stack" class:inverted style:left={`${x}px`} style:width={`${CELL}px`} data-section={section}
+                aria-label={`Repeat section ${section}`}>
+                {#each ['§', ...section] as char}<span>{char}</span>{/each}
+              </div>
+            {/if}
+          {/each}
           {#each inverted ? [...system.hands].reverse() : system.hands as { hand, stream }}
           {@const xs = offsets(stream)}
           {@const stacked = stack(stream)}
@@ -204,8 +244,10 @@
           <svg class="sheet-stream" data-stream={index} data-hand={hand} width={stream.frames * CELL} height={height}
             viewBox={`0 0 ${stream.frames * CELL} ${height}`} role="img"
             aria-label={`${hand === 'both' ? '' : `${HAND_NAMES[hand]}, `}measures ${stream.measures[0].number} to ${stream.measures.at(-1)!.number}`}>
-            <line class="octave-zero" data-line="0" style:stroke={octaveLineColor(0)} x1="0" x2={stream.frames * CELL}
-              y1={flip(ORIGIN / 2, height)} y2={flip(ORIGIN / 2, height)} stroke-width={ORIGIN} />
+            {#each originRuns(stream) as [x1, x2]}
+              <line class="octave-zero" data-line="0" style:stroke={octaveLineColor(0)} {x1} {x2}
+                y1={flip(ORIGIN / 2, height)} y2={flip(ORIGIN / 2, height)} stroke-width={ORIGIN} />
+            {/each}
             {#each stacked.lines as line}
               {@const y = flip(line.y, height)}
               <line class="octave-line" data-octave={line.octave} data-line={line.octave} style:stroke={octaveLineColor(line.octave)} stroke-width={OCTAVE}
@@ -213,18 +255,34 @@
             {/each}
             {#each stream.measures as measure, m}
               <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-              <g class="sheet-measure" class:seekable={!!onseek} data-measure={measure.number} data-index={measure.index}
+              <g class="sheet-measure" class:seekable={!!onseek} class:section={!!measure.section} data-measure={measure.number} data-index={measure.index} data-plays={measure.plays.join(' ')}
                 transform={`translate(${xs[m]} 0)`} onclick={() => onseek?.(measure.index)}>
                 <rect class="measure-hit" x="0" y="0" width={measure.frames * CELL} {height} />
-                {#if playhead && playhead.measure === measure.index}
+                {#if playhead && measure.plays.includes(playhead.measure)}
                   <rect class="playhead" x={columnAt(measure, playhead.tick) * CELL} y="0"
                     width={CELL} {height} />
                 {/if}
-                {#if metronomeHead && metronomeHead.measure === measure.index}
+                {#if metronomeHead && measure.plays.includes(metronomeHead.measure)}
                   <rect class="metronome-head" x={columnAt(measure, metronomeHead.tick) * CELL + 1} y="1"
                     width={CELL - 2} height={height - 2} />
                 {/if}
                 {#if m > 0}<line class="barline" x1="0" x2="0" y1="0" y2={height} />{/if}
+                {#if measure.repeat?.start}
+                  <!-- Traditional repeat sign: thick line, thin line, two dots. -->
+                  <g class="repeat-sign" data-repeat="start">
+                    <line class="repeat-thick" x1="2" x2="2" y1="0" y2={height} />
+                    <line x1="6" x2="6" y1="0" y2={height} />
+                    <circle cx="10" cy={height / 2 - ROW / 4} r="2" /><circle cx="10" cy={height / 2 + ROW / 4} r="2" />
+                  </g>
+                {/if}
+                {#if measure.repeat?.end}
+                  {@const w = measure.frames * CELL}
+                  <g class="repeat-sign" data-repeat="end">
+                    <circle cx={w - 10} cy={height / 2 - ROW / 4} r="2" /><circle cx={w - 10} cy={height / 2 + ROW / 4} r="2" />
+                    <line x1={w - 6} x2={w - 6} y1="0" y2={height} />
+                    <line class="repeat-thick" x1={w - 2} x2={w - 2} y1="0" y2={height} />
+                  </g>
+                {/if}
                 {#each measure.notes as note}
                   {@const spot = place(stacked, note, height)}
                   {@const y = spot.y}
@@ -344,6 +402,24 @@
   .sheet-hands { position: relative; }
   .deleted-layer { position: absolute; top: 0; left: 0; pointer-events: none; overflow: visible; }
   .deleted-frame line { stroke: var(--tertiary); stroke-width: 1.5; stroke-linecap: round; }
+  .section-stack {
+    position: absolute;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    pointer-events: none;
+    color: var(--primary);
+    font-size: calc(var(--min-box) * .8);
+    font-family: var(--font-mono, ui-monospace, monospace);
+    line-height: var(--min-box);
+  }
+  .section-stack.inverted { top: auto; bottom: 0; }
+  .repeat-sign line { stroke: var(--primary); stroke-width: 1.5; }
+  .repeat-sign .repeat-thick { stroke-width: 4; }
+  .repeat-sign circle { fill: var(--primary); }
+  .volta { stroke: currentColor; stroke-width: 1.5; }
+  .volta-label { font-size: calc(var(--min-box) * .5); dominant-baseline: central; }
   .pick-layer { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
   .pick-start { position: absolute; top: 0; pointer-events: auto; font-size: calc(var(--min-box) * .5); line-height: 1; }
   .pick-start :global(button) { background: var(--background); border: 1px solid var(--primary); border-radius: .25rem; }

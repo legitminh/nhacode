@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { REPEAT_MODES, type RepeatMode } from './lib/sheet/repeats';
   import { onMount, onDestroy } from 'svelte';
   import { Keyflow, KeyboardDisplay, interaction, type InteractionEvent } from '@legitminh/keyflow';
   import PianoKey from './lib/PianoKey.svelte';
@@ -40,6 +41,7 @@
   let lineWidths = $state(loadLineWidths());
   let keyBorder = $state(loadKeyBorder());
   let separateHands = $state(readPref('sheet:separate-hands', false, isBoolean));
+  let repeatMode = $state(readPref('sheet:repetition', 'expand', (value): value is RepeatMode => REPEAT_MODES.includes(value as RepeatMode)));
   let inverted = $state(readPref('sheet:inverted', false, isBoolean));
   let articulations = $state(readPref('sheet:articulations', true, isBoolean));
   let modifierPosition = $state(readPref('sheet:modifiers', 'above', (value): value is 'above' | 'below' => value === 'above' || value === 'below'));
@@ -231,6 +233,11 @@
     writePref('sheet:inverted', value);
   }
 
+  function setRepeatMode(value: RepeatMode) {
+    repeatMode = value;
+    writePref('sheet:repetition', value);
+  }
+
   function setSeparateHands(value: boolean) {
     separateHands = value;
     writePref('sheet:separate-hands', value);
@@ -265,7 +272,7 @@
       <Settings bind:open={settingsOpen} {transposed} {instrumentId} {range}
         ontranspose={setTransposed} oninstrument={selectInstrument} onrange={selectRange}
         {margins} onmargin={setMargin} {lineWidths} online={setLineWidth}
-        {keyBorder} onkeyborder={setKeyBorder} {separateHands} onseparatehands={setSeparateHands}
+        {keyBorder} onkeyborder={setKeyBorder} {separateHands} onseparatehands={setSeparateHands} {repeatMode} onrepeatmode={setRepeatMode}
         {inverted} oninverted={setInverted} {articulations} onarticulations={setArticulations} {modifierPosition} onmodifiers={setModifierPosition}
         {autoscroll} onautoscroll={setAutoscroll} {pedalPosition} onpedal={setPedalPosition}
         {playback} onplayback={setPlayback} {playbackInstrumentId} onplaybackinstrument={setPlaybackInstrument} />
@@ -304,7 +311,7 @@
         </section>
       {/if}
       {#if showSheet}
-        <div class="sheet-view"><Sheet {songId} {lineWidths} {separateHands} {inverted} {articulations} {modifierPosition} {pedalPosition}
+        <div class="sheet-view"><Sheet {songId} {lineWidths} {separateHands} {repeatMode} {inverted} {articulations} {modifierPosition} {pedalPosition}
           follow={autoscroll ? (player.playing ? player.position : metronome.running ? metronome.position : undefined) : undefined}
           playhead={playback ? player.position : undefined} onseek={playback ? (measure) => player.seek(measure) : undefined}
           metronomeHead={metronome.position} {picking} onpick={pickStart} oncancelpick={() => { picking = false; }}

@@ -150,6 +150,22 @@ The sheet has no stave; it only shows which key is pressed when:
   each skipped column shows the grace cross on its origin line, like an invisible
   grace note in octave 0. Hands come from the score: a piano grand staff's
   lower staff is the left hand; other staves count as left hand when in bass clef.
+- **Sheet pane → Repetition** picks how repeated sections show (playback and the
+  metronome always follow the repeats, like MuseScore):
+  - **Expand** (default): repeats are written out as one continuous stream. A
+    pickup copied after a short first ending makes one full measure with it, so
+    neither shows deleted-time crosses.
+  - **Traditional**: the score as written, with repeat signs (thick and thin
+    lines, two dots on each hand's stream), 1st/2nd ending brackets, and segno,
+    coda, Fine, D.C. and D.S. markings.
+  - **Programmatic**: each replayed section is drawn once, marked `[§ id` above its
+    first time frame and `]` above its last (below other markings on the same
+    frame). Each replay is a one-column § measure: § stacked over the id's digits
+    on the stream's border, with no octave lines. Ids count from 0 in order of first
+    use, in lowercase hexadecimal with the least significant digit first (16 is
+    `01`). Replacing every § measure with its section gives the expanded stream.
+  Repeats, endings and D.C./D.S./Coda/Fine come from the score's MusicXML. After a
+  D.C. or D.S. repeats are not taken again and only the last ending plays.
 - **Sheet pane → Order: Inverted** flips each stream vertically: octave 0 and its
   thick line go to the bottom, higher octaves sit above, and in a mega stream the
   left hand and the thick bar go to the bottom.
