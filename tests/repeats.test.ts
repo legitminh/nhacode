@@ -58,3 +58,19 @@ test('D.C. al Fine, D.S. al Coda and endings convert to a linear order', () => {
   assert.deepEqual(playOrder([bar(), bar({ ending: [1], repeat: { end: 2 } }), bar({ ending: [2] }), bar({ jump: { dacapo: true } }), bar()]),
     [0, 1, 0, 2, 3, 0, 2, 3, 4]);
 });
+
+test('Expand shows the short first ending and the copied pickup as one full measure', () => {
+  const items = displayItems(furElise, 'expand');
+  const joined = items[8];
+  assert.equal(joined.kind, 'measure');
+  if (joined.kind !== 'measure') return;
+  assert.deepEqual(joined.plays, [8, 9]);
+  assert.equal(joined.measure.duration, 36);
+  assert.deepEqual(joined.offsets, { 9: 24 });
+  assert.equal(items.length, expandSong(furElise).order.length - 1);
+  // The rest of the stream is unchanged: every played measure is covered once, in order.
+  assert.deepEqual(items.flatMap((item) => item.plays), expandSong(furElise).order.map((_, k) => k));
+  // Elsewhere the first ending keeps its deleted frames.
+  const programmatic = displayItems(furElise, 'programmatic').find((item) => item.kind === 'measure' && item.source === 8);
+  assert.ok(programmatic && programmatic.kind === 'measure' && programmatic.full === 36 && programmatic.measure.duration === 24);
+});

@@ -1,5 +1,5 @@
 [
-  { "id": "fur-elise", "title": "Für Elise", "tags": ["classical", "western"], "tempo_scale": 0.65, "measure_lengths": { "8": 1 }, "path": "./mxl/9/14/QmRChN12tY2yeGtMsns9hCLa8tLVufrP2XkHUGryLe9R4Z.mxl" },
+  { "id": "fur-elise", "title": "Für Elise", "tags": ["classical", "western"], "tempo_scale": 0.65, "path": "./mxl/9/14/QmRChN12tY2yeGtMsns9hCLa8tLVufrP2XkHUGryLe9R4Z.mxl" },
   { "id": "moonlight-sonata", "title": "Moonlight Sonata, 1st movement", "path": "./mxl/4/46/QmeuK3Unr7ybzDCvVVbU4Eu878nUjDhRJpZMyzzMY5EQyr.mxl" },
   { "id": "clair-de-lune", "title": "Clair de Lune", "composer": "Claude Debussy", "path": "./mxl/10/27/QmSJeDjtEuw3PjP17fheDNXGojcQ76HmntyE2T84D5zJYY.mxl" },
   { "id": "gymnopedie-1", "title": "Gymnopédie No. 1", "composer": "Erik Satie", "path": "./mxl/16/13/QmYcr8xpz7YFAc8mhryoY35CW2WpMCLCGhq3YrmTG4t7X6.mxl" },

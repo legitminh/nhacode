@@ -192,7 +192,7 @@ def fetch_requested(manifest=ROOT / 'scripts' / 'songs.json'):
         if 'composer' in entry:
             conn.execute('update scores set composer = ? where id = ?', (entry['composer'], entry['id']))
         conn.commit()
-        simplify(entry['id'], entry['title'], entry.get('tempo_scale', 1), entry.get('measure_lengths'))
+        simplify(entry['id'], entry['title'], entry.get('tempo_scale', 1))
 
 
 # --- MusicXML to "which key is pressed when" -------------------------------------------
@@ -413,13 +413,51 @@ def parse_score(xml):
     return tpq, measures
 
 
-def simplify(song_id, title, tempo_scale=1, measure_lengths=None):
-    """tempo_scale corrects a score whose tempo marking is off (e.g. 0.65 = 35% slower).
+def shorten_repeat_endings(measures, tpq):
+    """Cut a measure that repeats back to a pickup so the two make one full measure.
 
-    measure_lengths maps a measure number to its real length in quarter notes, for a
-    measure the score writes too long (such as a first ending that hands its last beat
-    back to the pickup); notes are cut at the new end.
+    A backward repeat that returns to a pickup (a short first measure of the repeated
+    section) hands the pickup's time back: the measure carrying the repeat plus the pickup
+    make one bar. Some scores still write that measure full (Für Elise's first ending
+    holds its A for a whole bar). Such a measure is cut by the pickup's length, but only
+    when it is written full and nothing starts in the part cut off.
     """
+    full = []
+    meter = (4, 4)
+    for measure in measures:
+        if measure.get('time'):
+            meter = tuple(measure['time'])
+        full.append(meter[0] * tpq * 4 // meter[1])
+    for i, measure in enumerate(measures):
+        if not measure.get('repeat', {}).get('end') or measure['duration'] != full[i]:
+            continue
+        # Where the repeat goes back to: the last forward repeat, else just after the last
+        # backward repeat, else the start.
+        target = 0
+        for k in range(i - 1, -1, -1):
+            if measures[k].get('repeat', {}).get('start'):
+                target = k
+                break
+            if measures[k].get('repeat', {}).get('end'):
+                target = k + 1
+                break
+        pickup = measures[target]['duration']
+        if target == i or pickup >= full[target]:
+            continue
+        length = full[i] - pickup
+        if any(note['start'] >= length for note in measure['notes']):
+            continue
+        measure['duration'] = length
+        measure['resolution'] = math.gcd(measure['resolution'], length)
+        for note in measure['notes']:
+            note['duration'] = min(note['duration'], length - note['start'])
+        for key in ('marks', 'tempos', 'pedals'):
+            for item in measure.get(key, []):
+                item['start'] = min(item['start'], length - 1)
+
+
+def simplify(song_id, title, tempo_scale=1):
+    """tempo_scale corrects a score whose tempo marking is off (e.g. 0.65 = 35% slower)."""
     conn = db()
     row = conn.execute('select path, title, composer, license, mxl, metadata, tags from scores where id = ?', (song_id,)).fetchone()
     if not row:
@@ -430,9 +468,6 @@ def simplify(song_id, title, tempo_scale=1, measure_lengths=None):
     out_measures = []
     last = {'tempo': None}  # only show a tempo when it changes
     for measure in measures:
-        if measure_lengths and measure['number'] in measure_lengths:
-            measure['duration'] = round(measure_lengths[measure['number']] * tpq)
-            measure['notes'] = [note for note in measure['notes'] if note['start'] < measure['duration']]
         values = [measure['duration']]
         for start, duration in measure['spans']:
             values += [start, min(duration, measure['duration'] - start)]
@@ -494,6 +529,7 @@ def simplify(song_id, title, tempo_scale=1, measure_lengths=None):
             item['jump'] = measure['jump']
         out_measures.append(item)
 
+    shorten_repeat_endings(out_measures, tpq)
     song = {
         'id': song_id, 'title': title or source_title, 'composer': composer if composer and composer != 'NA' else '',
         'tags': tags, 'ticksPerQuarter': tpq,

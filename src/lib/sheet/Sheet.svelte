@@ -259,11 +259,11 @@
                 transform={`translate(${xs[m]} 0)`} onclick={() => onseek?.(measure.index)}>
                 <rect class="measure-hit" x="0" y="0" width={measure.frames * CELL} {height} />
                 {#if playhead && measure.plays.includes(playhead.measure)}
-                  <rect class="playhead" x={columnAt(measure, playhead.tick) * CELL} y="0"
+                  <rect class="playhead" x={columnAt(measure, playhead.tick + (measure.offsets?.[playhead.measure] ?? 0)) * CELL} y="0"
                     width={CELL} {height} />
                 {/if}
                 {#if metronomeHead && measure.plays.includes(metronomeHead.measure)}
-                  <rect class="metronome-head" x={columnAt(measure, metronomeHead.tick) * CELL + 1} y="1"
+                  <rect class="metronome-head" x={columnAt(measure, metronomeHead.tick + (measure.offsets?.[metronomeHead.measure] ?? 0)) * CELL + 1} y="1"
                     width={CELL - 2} height={height - 2} />
                 {/if}
                 {#if m > 0}<line class="barline" x1="0" x2="0" y1="0" y2={height} />{/if}

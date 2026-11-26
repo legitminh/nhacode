@@ -133,9 +133,11 @@ The sheet has no stave; it only shows which key is pressed when:
 - A measure shorter than its time signature keeps its full width: each missing time
   frame shows a tall cross over the whole stream (that time is removed, played
   instantly). A pickup loses its start; any other short measure, such as a first
-  ending that hands its last beat back to the pickup, loses its end. Scores that
-  write such a measure too long are corrected in `scripts/songs.json` with
-  `measure_lengths` (measure number to quarter notes); Für Elise's measure 8 is one.
+  ending that hands its last beat back to the pickup, loses its end. The importer
+  finds such a measure by rule: one that ends in a backward repeat going back to a
+  pickup, written as a full bar with nothing starting in its last pickup-length, is
+  cut by the pickup's length (Für Elise's measure 8). In Expand, that measure and the
+  pickup copied after it show as one full measure.
 - Measures wrap to a new stream at the screen edge.
 - Score markings sit above each line: tempo as `bpm=N` when it changes, dynamics
   (bold italic), short directions such as *dim.* or *a tempo*, and crescendo/
@@ -153,8 +155,8 @@ The sheet has no stave; it only shows which key is pressed when:
 - **Sheet pane → Repetition** picks how repeated sections show (playback and the
   metronome always follow the repeats, like MuseScore):
   - **Expand** (default): repeats are written out as one continuous stream. A
-    pickup copied after a short first ending makes one full measure with it, so
-    neither shows deleted-time crosses.
+    pickup copied after a short first ending is shown merged with it as one full
+    measure, with no crosses and no barline between them.
   - **Traditional**: the score as written, with repeat signs (thick and thin
     lines, two dots on each hand's stream), 1st/2nd ending brackets, and segno,
     coda, Fine, D.C. and D.S. markings.

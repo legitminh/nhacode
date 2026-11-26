@@ -91,7 +91,7 @@ export function fullLengths(measures: SongMeasure[], ticksPerQuarter: number): n
 /**
  * The song as played: its measures copied in play order. A copy of the pickup that follows a
  * short measure (a first ending going back to the start) makes one full measure with it: both
- * are marked `joined`, so neither shows deleted time frames.
+ * are marked `joined`, and the expanded sheet shows them as that one measure.
  */
 export function expandSong(song: Song): { song: Song; order: number[] } {
   const order = playOrder(song.measures);
@@ -108,6 +108,20 @@ export function expandSong(song: Song): { song: Song; order: number[] } {
   return { song: { ...song, measures }, order };
 }
 
+const gcd = (a: number, b: number): number => (b ? gcd(b, a % b) : a);
+
+/** A short measure and the pickup copied after it, as the one full measure they make together. */
+function joinMeasures(a: SongMeasure, b: SongMeasure): SongMeasure {
+  const shift = <T extends { start: number }>(items: T[] | undefined) => (items ?? []).map((item) => ({ ...item, start: item.start + a.duration }));
+  return {
+    number: a.number, duration: a.duration + b.duration, resolution: gcd(gcd(a.resolution, b.resolution), a.duration),
+    notes: [...a.notes, ...shift(b.notes)], marks: [...(a.marks ?? []), ...shift(b.marks)],
+    tempos: [...(a.tempos ?? []), ...shift(b.tempos)], pedals: [...(a.pedals ?? []), ...shift(b.pedals)],
+    ...(a.time ? { time: a.time } : {}), ...(a.repeat ? { repeat: a.repeat } : {}), ...(a.ending ? { ending: a.ending } : {}),
+    ...(a.jump ? { jump: a.jump } : {}), source: a.source,
+  };
+}
+
 /** A section's label: its id in lowercase hexadecimal, least significant digit first (16 is "01"). */
 export const sectionLabel = (id: number) => [...id.toString(16)].reverse().join('');
 
@@ -117,7 +131,9 @@ export type DisplayItem =
       /** Draw the score's repeat barlines, endings and navigation (traditional mode). */
       traditional: boolean;
       /** Section brackets that open ("[§ id") or close ("]") on this measure (programmatic mode). */
-      opens: number[]; closes: number[] }
+      opens: number[]; closes: number[];
+      /** Ticks to add to a position in played measure k to place it in this measure (a joined pickup). */
+      offsets?: Record<number, number> }
   | { kind: 'section'; id: number; index: number; plays: number[] };
 
 /**
@@ -130,9 +146,21 @@ export function displayItems(song: Song, mode: RepeatMode): DisplayItem[] {
   const full = fullLengths(song.measures, song.ticksPerQuarter);
   const measureItem = (source: number, index: number, plays: number[], measure = song.measures[source]): DisplayItem => ({
     kind: 'measure', measure, source, index, plays, pickup: source === 0 || !!measure.pickup,
-    full: measure.joined ? measure.duration : full[source], traditional: mode === 'traditional', opens: [], closes: [],
+    full: full[source], traditional: mode === 'traditional', opens: [], closes: [],
   });
-  if (mode === 'expand') return played.measures.map((measure, k) => measureItem(order[k], k, [k], measure));
+  if (mode === 'expand') {
+    // A short first ending and the pickup copied after it show as one full measure.
+    const items: DisplayItem[] = [];
+    for (let k = 0; k < played.measures.length; k++) {
+      const measure = played.measures[k];
+      const next = played.measures[k + 1];
+      if (measure.joined && next?.joined && order[k + 1] === 0) {
+        items.push({ ...measureItem(order[k], k, [k, k + 1], joinMeasures(measure, next)), pickup: false, offsets: { [k + 1]: measure.duration } } as DisplayItem);
+        k++;
+      } else items.push(measureItem(order[k], k, [k], measure));
+    }
+    return items;
+  }
   if (mode === 'traditional') {
     return song.measures.map((_, source) => {
       const plays = order.flatMap((s, k) => (s === source ? [k] : []));

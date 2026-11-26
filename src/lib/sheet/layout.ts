@@ -33,6 +33,10 @@ export type MeasureLayout = {
   index: number;
   /** Every played-measure index this measure stands for: the playhead and autoscroll find it by them. */
   plays: number[];
+  /** Ticks to add to a position in played measure k to place it here (a joined pickup). */
+  offsets?: Record<number, number>;
+  /** The measure this was laid out from (pedal marks come from it). */
+  song?: SongMeasure;
   /** A programmatic § measure: the label of the section it replays. One column, no notes. */
   section?: string;
   /** Traditional mode: the score's repeat barlines, ending and navigation marks on this measure. */
@@ -298,6 +302,8 @@ function layoutItem(item: DisplayItem, hand?: 'left' | 'right'): MeasureLayout {
   }
   const layout = layoutMeasure(item.measure, item.index, hand, item.full, item.pickup);
   layout.plays = item.plays;
+  layout.offsets = item.offsets;
+  layout.song = item.measure;
   if (item.traditional) {
     layout.repeat = item.measure.repeat;
     layout.ending = item.measure.ending;
@@ -434,7 +440,7 @@ export function layoutPedals(systems: SystemLayout[], measures: SongMeasure[]): 
     if (down) down = { from: 0, changes: [], continued: true };
     let offset = 0;
     for (const layout of stream.measures) {
-      const measure = measures[layout.index];
+      const measure = layout.song ?? measures[layout.index];
       if (!measure || layout.section) { offset += layout.frames; continue; }
       for (const pedal of measure.pedals ?? []) {
         const frame = offset + columnAt(layout, pedal.start);
