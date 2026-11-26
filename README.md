@@ -63,7 +63,7 @@ The top bar has two Keyflow toggles: **sheet** (shortcut S) and the keyboard ico
 (shortcut K). Either screen can be on or off; when both are on they sit side by
 side. The choice is remembered per browser. While the sheet is on, the toolbar
 also shows a **▶/⏸** play button (P) and the song title, a 16-character Keyflow
-`BoundedText` that scrolls when longer; the title (M) opens the song screen.
+`BoundedText` that scrolls itself in a loop when longer (no scrollbar); the title (M) opens the song screen.
 
 Playback works like MuseScore's: ▶ plays the song from the playhead with the
 app's instrument pack, following the score's tempo changes, and ⏸ pauses. The
@@ -168,6 +168,10 @@ The sheet has no stave; it only shows which key is pressed when:
     `01`). Replacing every § measure with its section gives the expanded stream.
   Repeats, endings and D.C./D.S./Coda/Fine come from the score's MusicXML. After a
   D.C. or D.S. repeats are not taken again and only the last ending plays.
+- **Sheet pane → Quarter marker** (on by default) strikes through every four octave
+  lines in a row (0–3, then 4–7…) at the centre of each column where those four lines
+  sit together with no notes between them, like a tally: the first stroke runs from the
+  red origin line through green and blue to yellow, barely touching red and yellow.
 - **Sheet pane → Order: Inverted** flips each stream vertically: octave 0 and its
   thick line go to the bottom, higher octaves sit above, and in a mega stream the
   left hand and the thick bar go to the bottom.
@@ -242,8 +246,8 @@ upstream revision and parses the data without evaluating downloaded JavaScript.
 
 ## Keyflow
 
-Version **0.7.0**, latest release verified on 2026-11-15, from upstream revision
-`dc0c68a65ea1bf8a2721b13403d4e303e9b02e82`.
+Version **0.16.0**, latest release verified on 2026-11-26, from upstream revision
+`f8700cc` (archive SHA-256 `c2bef09cea1850be66feab906ed19f412b47fee693520d1650168f92138005d2`).
 The official release archive is committed in `vendor/` and locked in
 `package-lock.json`, so a clean checkout needs no Keyflow source build.
 Source: https://github.com/legitminh/keyflow

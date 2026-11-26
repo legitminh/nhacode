@@ -10,11 +10,13 @@
 
   import type { Position } from './timeline';
 
-  let { songId, lineWidths, separateHands = false, repeatMode = 'expand', inverted = false, articulations = true, modifierPosition = 'above', follow, pedalPosition = 'below', playhead, metronomeHead, picking = false, onpick, oncancelpick,
+  let { songId, lineWidths, separateHands = false, repeatMode = 'expand', quarterMarker = true, inverted = false, articulations = true, modifierPosition = 'above', follow, pedalPosition = 'below', playhead, metronomeHead, picking = false, onpick, oncancelpick,
     onseek, onsong }: {
     songId: string; lineWidths: LineWidths; separateHands?: boolean; inverted?: boolean;
     /** How repeated sections are shown; playback always follows them. */
     repeatMode?: RepeatMode;
+    /** Strike through every four octave lines in a row (0–3, 4–7…) at each column's centre, like a tally. */
+    quarterMarker?: boolean;
     /** Show staccato, accent and fermata above notes and arpeggios left of chords. */
     articulations?: boolean;
     /** Where note modifiers (staccato, accent, trill, grace cross…) go relative to the digit, whatever the order. */
@@ -253,6 +255,15 @@
               <line class="octave-line" data-octave={line.octave} data-line={line.octave} style:stroke={octaveLineColor(line.octave)} stroke-width={OCTAVE}
                 x1={line.from * CELL + 1} x2={line.to * CELL - 1} y1={y} y2={y} />
             {/each}
+            {#if quarterMarker}
+              {#each stacked.quarters as quarter}
+                <!-- Barely touches the first and fourth lines: from edge to edge. -->
+                {@const a = quarter.from === undefined ? ORIGIN : quarter.from + OCTAVE / 2}
+                {@const b = quarter.to - OCTAVE / 2}
+                <line class="quarter-marker" data-octave={quarter.octave} x1={quarter.column * CELL + CELL / 2} x2={quarter.column * CELL + CELL / 2}
+                  y1={flip(a, height)} y2={flip(b, height)} />
+              {/each}
+            {/if}
             {#each stream.measures as measure, m}
               <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
               <g class="sheet-measure" class:seekable={!!onseek} class:section={!!measure.section} data-measure={measure.number} data-index={measure.index} data-plays={measure.plays.join(' ')}
@@ -415,6 +426,7 @@
     line-height: var(--min-box);
   }
   .section-stack.inverted { top: auto; bottom: 0; }
+  .quarter-marker { stroke: var(--primary); stroke-width: 1.5; }
   .repeat-sign line { stroke: var(--primary); stroke-width: 1.5; }
   .repeat-sign .repeat-thick { stroke-width: 4; }
   .repeat-sign circle { fill: var(--primary); }

@@ -271,3 +271,13 @@ test('Für Elise: the pickup and the first ending are short, and the ending star
   assert.equal(clicks.find((c) => c.position.measure === 0)!.kind, 'weak');
   assert.deepEqual(clicks.filter((c) => c.position.measure === 8).map((c) => c.kind), ['strong', 'weak']);
 });
+
+test('quarter markers strike every four octave lines in a row with nothing between them', () => {
+  // Column 0: a note in octave 5 (lines 1–5, nothing below): one marker over lines 0–3.
+  // Column 1: a note in octave 1 sits between lines 1 and 2, so no marker for 0–3; lines 4–7 above it are clear.
+  const { result } = stacked([{ start: 0, duration: 1, midi: 21 + 60 }, { start: 1, duration: 1, midi: 21 + 12 }, { start: 1, duration: 1, midi: 21 + 84 }]);
+  assert.deepEqual(result.quarters.map((q) => [q.column, q.octave, q.from, q.to]), [[0, 0, undefined, 3.5], [1, 4, 14.5, 17.5]]);
+  // Eight empty lines: two markers, 0–3 and 4–7.
+  const eight = stacked([{ start: 0, duration: 1, midi: 21 + 96 }]);
+  assert.deepEqual(eight.result.quarters.map((q) => [q.octave, q.from, q.to]), [[0, undefined, 3.5], [4, 4.5, 7.5]]);
+});

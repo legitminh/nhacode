@@ -194,12 +194,20 @@ export type StackSizes = {
 /** An octave line segment over columns [from, to) of the stream, centred at y (from the origin side). */
 export type OctaveLine = { octave: number; from: number; to: number; y: number };
 
+/**
+ * A quarter marker: in `column`, octave lines `octave`..`octave + 3` sit right after one another
+ * with nothing between them, so a stroke crosses all four (like a tally). `from` is the first
+ * line's y (undefined for the origin line), `to` the fourth's.
+ */
+export type QuarterMark = { column: number; octave: number; from?: number; to: number };
+
 export type StackedStream = {
   /** Distance from the origin side of the stream to the near edge of each note's slot. */
   tops: Map<SheetNote, number>;
   /** Height of each note's slot: the digit, plus room for its modifiers. */
   heights: Map<SheetNote, number>;
   lines: OctaveLine[];
+  quarters: QuarterMark[];
   height: number;
 };
 
@@ -227,8 +235,10 @@ export function stackStream(stream: StreamLayout, sizes: StackSizes): StackedStr
   items.sort((a, b) => a.note.midi - b.note.midi || a.from - b.from);
   const tops = new Map<SheetNote, number>();
   const heights = new Map<SheetNote, number>();
+  const occupied = Array.from({ length: stream.frames }, () => new Set<number>());
   for (const { note, from } of items) {
     const to = from + note.frames;
+    for (let c = from; c < to; c++) occupied[c].add(note.octave);
     let level = 0;
     for (let c = from; c < to; c++) {
       while (count[c] < note.octave) {
@@ -258,7 +268,15 @@ export function stackStream(stream: StreamLayout, sizes: StackSizes): StackedStr
       else run = { octave, from: c, to: c + 1, y };
     }
   });
-  return { tops, heights, lines, height: Math.max(gap, ...top) };
+  // Quarter markers: every four lines from octave 0 (0–3, 4–7…) with no notes between them.
+  const quarters: QuarterMark[] = [];
+  for (let c = 0; c < stream.frames; c++) {
+    for (let o = 0; lineY[o + 3]?.[c] !== undefined; o += 4) {
+      if ([o, o + 1, o + 2].some((octave) => occupied[c].has(octave))) continue;
+      quarters.push({ column: c, octave: o, from: o ? lineY[o][c] : undefined, to: lineY[o + 3][c] });
+    }
+  }
+  return { tops, heights, lines, quarters, height: Math.max(gap, ...top) };
 }
 
 /** A stream: a line of measures. */

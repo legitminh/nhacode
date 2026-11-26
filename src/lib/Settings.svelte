@@ -8,7 +8,7 @@
   import { REPEAT_MODES, REPEAT_NAMES, type RepeatMode } from './sheet/repeats';
 
   let { open = $bindable(false), transposed, instrumentId, range, margins, lineWidths,
-    ontranspose, oninstrument, onrange, onmargin, online, keyBorder, onkeyborder, separateHands, onseparatehands, repeatMode, onrepeatmode, inverted, oninverted, articulations, onarticulations, modifierPosition, onmodifiers, autoscroll, onautoscroll, pedalPosition, onpedal,
+    ontranspose, oninstrument, onrange, onmargin, online, keyBorder, onkeyborder, separateHands, onseparatehands, repeatMode, onrepeatmode, quarterMarker, onquartermarker, inverted, oninverted, articulations, onarticulations, modifierPosition, onmodifiers, autoscroll, onautoscroll, pedalPosition, onpedal,
     playback, onplayback, playbackInstrumentId, onplaybackinstrument }: {
     open?: boolean;
     transposed: boolean;
@@ -27,6 +27,8 @@
     onseparatehands: (value: boolean) => void;
     repeatMode: RepeatMode;
     onrepeatmode: (value: RepeatMode) => void;
+    quarterMarker: boolean;
+    onquartermarker: (value: boolean) => void;
     inverted: boolean;
     oninverted: (value: boolean) => void;
     articulations: boolean;
@@ -146,6 +148,7 @@
           <Button on_close={() => onseparatehands(!separateHands)}>Hands: {separateHands ? 'Separate' : 'Together'}</Button>
           <Button on_close={() => onrepeatmode(REPEAT_MODES[(REPEAT_MODES.indexOf(repeatMode) + 1) % REPEAT_MODES.length])}
             >Repetition: {REPEAT_NAMES[repeatMode]}</Button>
+          <Button on_close={() => onquartermarker(!quarterMarker)}>Quarter marker: {quarterMarker ? 'On' : 'Off'}</Button>
           <Button on_close={() => oninverted(!inverted)}>Order: {inverted ? 'Inverted' : 'Normal'}</Button>
           <Button on_close={() => onarticulations(!articulations)}>Articulations: {articulations ? 'On' : 'Off'}</Button>
           <Button on_close={() => onmodifiers(modifierPosition === 'above' ? 'below' : 'above')}
