@@ -130,6 +130,12 @@ The sheet has no stave; it only shows which key is pressed when:
   colored with Keyflow's `distribute_color` by index: the thick origin line is 0,
   the line above octave n is n. Digits and hold dashes take their octave's color
   too, so each octave block matches the line above it.
+- A measure shorter than its time signature keeps its full width: each missing time
+  frame shows a tall cross over the whole stream (that time is removed, played
+  instantly). A pickup loses its start; any other short measure, such as a first
+  ending that hands its last beat back to the pickup, loses its end. Scores that
+  write such a measure too long are corrected in `scripts/songs.json` with
+  `measure_lengths` (measure number to quarter notes); Für Elise's measure 8 is one.
 - Measures wrap to a new stream at the screen edge.
 - Score markings sit above each line: tempo as `bpm=N` when it changes, dynamics
   (bold italic), short directions such as *dim.* or *a tempo*, and crescendo/

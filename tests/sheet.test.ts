@@ -242,3 +242,32 @@ test('playback plays grace notes just before the beat, trills alternate, and fer
   // During the pause the cursor stays on the fermata note.
   assert.equal(Math.floor(timeline.positionAt(3300).tick), 2);
 });
+
+test('short measures keep their full width: deleted time frames before a pickup, after any other', async () => {
+  const { layoutSystems, fullLengths } = await import('../src/lib/sheet/layout.ts');
+  const measures = [
+    { number: '0', duration: 2, resolution: 1, time: [3, 8] as [number, number], notes: [{ start: 0, duration: 1, midi: 76 }, { start: 1, duration: 1, midi: 75 }] },
+    { number: '1', duration: 3, resolution: 1, notes: [{ start: 0, duration: 3, midi: 69 }] },
+    { number: '2', duration: 2, resolution: 1, notes: [{ start: 0, duration: 2, midi: 69 }] },
+  ];
+  assert.deepEqual(fullLengths(measures, 2), [3, 3, 3]);
+  const [pickup, whole, short] = layoutSystems(measures, 100, true, 2)[0].hands[1].stream.measures;
+  assert.deepEqual([pickup.frames, pickup.deleted, pickup.columnOf], [3, [0], [1, 2, 3]]);
+  assert.deepEqual(pickup.notes.map((n) => n.frame), [1, 2]);
+  assert.deepEqual([whole.frames, whole.deleted], [3, []]);
+  assert.deepEqual([short.frames, short.deleted, short.notes[0].frames], [3, [2], 2]);
+  // Without the ticks per quarter (no time signatures), nothing is deleted.
+  assert.deepEqual(layoutSystems(measures, 100, false)[0].hands[0].stream.measures.map((m) => m.frames), [2, 3, 2]);
+});
+
+test('Für Elise: the pickup and the first ending are short, and the ending starts on a strong beat', async () => {
+  const { Timeline } = await import('../src/lib/sheet/timeline.ts');
+  const { readFileSync } = await import('node:fs');
+  const song = JSON.parse(readFileSync(new URL('../src/songs/fur-elise.json', import.meta.url), 'utf8'));
+  assert.equal(song.measures[0].duration, 12);
+  assert.equal(song.measures[8].duration, 24);
+  assert.equal(song.measures[8].notes.find((n: { midi: number }) => n.midi === 69).duration, 24); // A held two eighths, not three
+  const clicks = new Timeline(song).clicks();
+  assert.equal(clicks.find((c) => c.position.measure === 0)!.kind, 'weak');
+  assert.deepEqual(clicks.filter((c) => c.position.measure === 8).map((c) => c.kind), ['strong', 'weak']);
+});

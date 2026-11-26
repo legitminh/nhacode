@@ -38,6 +38,12 @@ export type MeasureLayout = {
   frames: number;
   /** columnOf[f] is the column of time frame f (one entry per frame, plus the end). */
   columnOf: number[];
+  /**
+   * Columns of time frames a short measure lacks against its time signature: before a
+   * pickup (the song's first measure), after any other short measure. Each shows a tall
+   * cross over the whole stream: that time is removed (played instantly).
+   */
+  deleted: number[];
   notes: SheetNote[];
   /**
    * reach[c] is the highest octave sounding (started or held) in column c,
@@ -77,9 +83,11 @@ export function columnAt(measure: MeasureLayout, tick: number): number {
  * a column added for one hand's grace note or rolled chord is a skip in the other hand.
  * Vertical placement happens per stream, in `stackStream`.
  */
-export function layoutMeasure(measure: SongMeasure, index = 0, hand?: 'left' | 'right'): MeasureLayout {
+export function layoutMeasure(measure: SongMeasure, index = 0, hand?: 'left' | 'right', full = measure.duration): MeasureLayout {
   const resolution = measure.resolution;
   const timeFrames = Math.max(1, Math.round(measure.duration / resolution));
+  const missing = Math.max(0, Math.round((full - measure.duration) / resolution));
+  const pickup = index === 0;
   const usable = measure.notes.filter((note) => note.midi >= A0 && note.start < measure.duration && (note.grace || note.duration > 0));
   const frameOf = (tick: number) => Math.min(timeFrames - 1, Math.floor(tick / resolution));
   const handOf = (note: SongMeasure['notes'][number]) => note.hand ?? 'right';
@@ -100,14 +108,15 @@ export function layoutMeasure(measure: SongMeasure, index = 0, hand?: 'left' | '
   const rolled = new Set(usable.filter(isRolled).map((note) => frameOf(note.start)));
   for (const frame of rolled) pad[frame] += 1;
   const columnOf: number[] = [];
-  let column = 0;
+  let column = pickup ? missing : 0;
   for (let f = 0; f < timeFrames; f++) {
     column += pad[f];
     columnOf.push(column);
     column += 1;
   }
   columnOf.push(column);
-  const frames = column;
+  const deleted = Array.from({ length: missing }, (_, i) => (pickup ? 0 : column) + i);
+  const frames = column + (pickup ? 0 : missing);
 
   const mine = hand ? usable.filter((note) => handOf(note) === hand) : usable;
   // Grace notes count back from their main note's column (before the arpeggio column, if any).
@@ -152,7 +161,7 @@ export function layoutMeasure(measure: SongMeasure, index = 0, hand?: 'left' | '
   }
 
   const marks = (measure.marks ?? []).map((mark) => ({ ...mark, frame: columnOf[frameOf(mark.start)] }));
-  return { number: measure.number, index, resolution, frames, columnOf, notes: placed, reach, marks };
+  return { number: measure.number, index, resolution, frames, columnOf, deleted, notes: placed, reach, marks };
 }
 
 /** Sizes (in px) for stacking a stream's columns. */
@@ -265,12 +274,25 @@ export type SystemLayout = { hands: { hand: Hand; stream: StreamLayout }[] };
  * Lays out a song as systems. With `separate`, each measure is laid out once per hand
  * (same columns, so a column is the same moment in both hands) and both hands wrap at the same measures.
  */
-export function layoutSystems(measures: SongMeasure[], width: number, separate: boolean): SystemLayout[] {
+/**
+ * The full length of each measure in ticks, from the time signatures (a measure keeps the
+ * last one set; 4/4 until then). A measure shorter than this has deleted time frames.
+ */
+export function fullLengths(measures: SongMeasure[], ticksPerQuarter: number): number[] {
+  let meter: [number, number] = [4, 4];
+  return measures.map((measure) => {
+    if (measure.time) meter = measure.time;
+    return Math.max(measure.duration, meter[0] * ticksPerQuarter * 4 / meter[1]);
+  });
+}
+
+export function layoutSystems(measures: SongMeasure[], width: number, separate: boolean, ticksPerQuarter?: number): SystemLayout[] {
+  const full = ticksPerQuarter ? fullLengths(measures, ticksPerQuarter) : measures.map((measure) => measure.duration);
   if (!separate) {
-    return layoutStreams(measures.map((measure, index) => layoutMeasure(measure, index)), width).map((s) => ({ hands: [{ hand: 'both', stream: s }] }));
+    return layoutStreams(measures.map((measure, index) => layoutMeasure(measure, index, undefined, full[index])), width).map((s) => ({ hands: [{ hand: 'both', stream: s }] }));
   }
-  const right = measures.map((measure, index) => layoutMeasure(measure, index, 'right'));
-  const left = measures.map((measure, index) => layoutMeasure(measure, index, 'left'));
+  const right = measures.map((measure, index) => layoutMeasure(measure, index, 'right', full[index]));
+  const left = measures.map((measure, index) => layoutMeasure(measure, index, 'left', full[index]));
   let index = 0;
   return layoutStreams(right, width).map((rightStream) => {
     const count = rightStream.measures.length;

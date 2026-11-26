@@ -192,7 +192,7 @@ def fetch_requested(manifest=ROOT / 'scripts' / 'songs.json'):
         if 'composer' in entry:
             conn.execute('update scores set composer = ? where id = ?', (entry['composer'], entry['id']))
         conn.commit()
-        simplify(entry['id'], entry['title'], entry.get('tempo_scale', 1))
+        simplify(entry['id'], entry['title'], entry.get('tempo_scale', 1), entry.get('measure_lengths'))
 
 
 # --- MusicXML to "which key is pressed when" -------------------------------------------
@@ -382,8 +382,13 @@ def parse_score(xml):
     return tpq, measures
 
 
-def simplify(song_id, title, tempo_scale=1):
-    """tempo_scale corrects a score whose tempo marking is off (e.g. 0.65 = 35% slower)."""
+def simplify(song_id, title, tempo_scale=1, measure_lengths=None):
+    """tempo_scale corrects a score whose tempo marking is off (e.g. 0.65 = 35% slower).
+
+    measure_lengths maps a measure number to its real length in quarter notes, for a
+    measure the score writes too long (such as a first ending that hands its last beat
+    back to the pickup); notes are cut at the new end.
+    """
     conn = db()
     row = conn.execute('select path, title, composer, license, mxl, metadata, tags from scores where id = ?', (song_id,)).fetchone()
     if not row:
@@ -394,6 +399,9 @@ def simplify(song_id, title, tempo_scale=1):
     out_measures = []
     last = {'tempo': None}  # only show a tempo when it changes
     for measure in measures:
+        if measure_lengths and measure['number'] in measure_lengths:
+            measure['duration'] = round(measure_lengths[measure['number']] * tpq)
+            measure['notes'] = [note for note in measure['notes'] if note['start'] < measure['duration']]
         values = [measure['duration']]
         for start, duration in measure['spans']:
             values += [start, min(duration, measure['duration'] - start)]

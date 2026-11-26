@@ -44,7 +44,7 @@
   let song = $state<Song | undefined>();
   let error = $state('');
   let width = $state(0);
-  const systems = $derived(song ? layoutSystems(song.measures, Math.max(1, Math.floor((width - 16) / CELL)), separateHands) : []);
+  const systems = $derived(song ? layoutSystems(song.measures, Math.max(1, Math.floor((width - 16) / CELL)), separateHands, song.ticksPerQuarter) : []);
   const marks = $derived(layoutMarks(systems));
   const hasPedal = $derived(!!song?.measures.some((measure) => measure.pedals?.length));
   const pedals = $derived(song && hasPedal ? layoutPedals(systems, song.measures) : []);
@@ -182,6 +182,20 @@
                 </div>
               {/each}
             </div>
+          {/if}
+          {#if top.measures.some((measure) => measure.deleted.length)}
+            <!-- Deleted time frames of short measures: a tall cross over the whole stream for each. -->
+            <svg class="deleted-layer" width={top.frames * CELL} height="100%" aria-hidden="true">
+              {#each top.measures as measure, m}
+                {#each measure.deleted as column}
+                  {@const x = offsets(top)[m] + column * CELL}
+                  <g class="deleted-frame" data-index={measure.index} data-column={column}>
+                    <line x1={x + CELL * .15} x2={x + CELL * .85} y1="2%" y2="98%" />
+                    <line x1={x + CELL * .85} x2={x + CELL * .15} y1="2%" y2="98%" />
+                  </g>
+                {/each}
+              {/each}
+            </svg>
           {/if}
           {#each inverted ? [...system.hands].reverse() : system.hands as { hand, stream }}
           {@const xs = offsets(stream)}
@@ -328,6 +342,8 @@
   .art-trill { stroke: none; font-style: italic; font-weight: bold; text-anchor: middle; dominant-baseline: central; font-family: serif; }
   .metronome-head { fill: none; stroke: var(--primary); stroke-width: 2; stroke-dasharray: 4 3; }
   .sheet-hands { position: relative; }
+  .deleted-layer { position: absolute; top: 0; left: 0; pointer-events: none; overflow: visible; }
+  .deleted-frame line { stroke: var(--tertiary); stroke-width: 1.5; stroke-linecap: round; }
   .pick-layer { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
   .pick-start { position: absolute; top: 0; pointer-events: auto; font-size: calc(var(--min-box) * .5); line-height: 1; }
   .pick-start :global(button) { background: var(--background); border: 1px solid var(--primary); border-radius: .25rem; }
