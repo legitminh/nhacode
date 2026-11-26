@@ -292,5 +292,12 @@ main .piano-matrix.keyflow-keyboard {
 .metronome-row > span { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .metronome-settings .metronome-field { display: flex; flex: 0 0 calc(var(--min-box) * 2.5); }
 .metronome-settings .metronome-field button { border: 1px solid currentColor; padding: 0 calc(var(--min-box) / 4); }
+.export-settings { display: flex; flex-direction: column; gap: .25rem; }
+.export-row { display: flex; align-items: center; gap: .5rem; }
+.export-row > span:first-child { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.export-heading { margin-top: .5rem; }
+.export-summary { margin: .5rem 0 0; }
+.export-settings .export-field { display: flex; flex: 0 0 calc(var(--min-box) * 2.5); }
+.export-settings .export-field button { border: 1px solid currentColor; padding: 0 calc(var(--min-box) / 4); }
 .speed-setting { display: flex; flex-direction: column; gap: .25rem; margin-top: .5rem; }
 .speed-setting .speed-slider { width: 100%; }

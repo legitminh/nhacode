@@ -72,7 +72,18 @@ there (playback continues from it). **Sheet pane → Playback** hides the tool a
 **Playback instrument** picks grand piano, violin, cello or flute.
 
 The toolbar reads, left to right: **playback** (O), ▶/⏸ (P), the song title (M),
-**metronome** (T) and the metronome's ▶/⏸ (N).
+**metronome** (T), the metronome's ▶/⏸ (N) and **export** (E).
+
+- **export** saves the sheet as a PDF (the only format for now) on A4 paper, drawn as
+  vectors with the sheet's current text size, line width (lines wrap where they wrap on
+  screen), settings and theme colours. Each stream line, both hands with its markings
+  and pedal, sits whole on one page: lines fill a page top to bottom and the next line
+  that would cross the bottom margin starts a new page. **Scaling** is a percentage of
+  the on-screen size; **Auto scaling** (default) prints at 100% unless the widest or
+  tallest line would not fit, and then uses the largest scale at which it does. A
+  requested scale is lowered the same way when a line would not fit. **Margins** are in
+  millimetres per side (default one inch, 25.4 mm). The panel shows the page count
+  and scale, and the settings are remembered.
 
 - **playback → Start playback from** puts a ▶ triangle (a Keyflow `ButtonPositional`)
   at the start of every measure in its own input frame: click one or type its

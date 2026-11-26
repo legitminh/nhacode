@@ -12,6 +12,7 @@
   import { DEFAULT_METRONOME, Metronome, type MetronomeSettings } from './lib/sheet/metronome.svelte';
   import PlaybackMenu from './lib/sheet/PlaybackMenu.svelte';
   import MetronomeMenu from './lib/sheet/MetronomeMenu.svelte';
+  import ExportMenu from './lib/sheet/ExportMenu.svelte';
   import { songs } from './lib/sheet/songs';
   import { NOTE_NAMES, noteAt, parseOctaveRange, type PianoNote } from './lib/notes';
   import { AudioEngine } from './lib/audio/engine';
@@ -298,6 +299,7 @@
         <MetronomeMenu settings={metronomeSettings} disabled={settingsOpen} onchange={setMetronome} />
         <PlayButton playing={metronome.running} disabled={settingsOpen} ontoggle={toggleMetronome}
           keys="n" name="metronome" class="metronome-toggle" />
+        <ExportMenu disabled={settingsOpen} />
       {/if}
     </div>
     <div class="views">

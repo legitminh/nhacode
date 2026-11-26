@@ -530,3 +530,36 @@ test('autoscroll keeps the playback line at the top of the view', async ({ page 
   await expect.poll(top, { timeout: 5000 }).toBeLessThan(5);
   await page.keyboard.press('p');
 });
+
+test('export panel downloads an A4 PDF with whole stream lines per page', async ({ page }) => {
+  await page.evaluate(() => localStorage.setItem('nhacode:sheet:separate-hands', 'true'));
+  await page.reload();
+  await page.getByRole('button', { name: /^Sheet/ }).click();
+  await page.getByRole('button', { name: /^Keyboard/ }).click();
+  await expect(page.locator('.sheet-stream-box').first()).toBeVisible();
+  await page.keyboard.press('e');
+  const summary = page.locator('.export-summary');
+  await expect(summary).toContainText(/\d+ pages? at [\d.]+%/);
+  // Automatic scaling: the widest stream line fills the width inside one-inch margins.
+  const auto = Number(await summary.getAttribute('data-scale'));
+  const widest = await page.locator('.sheet-stream-box svg.sheet-stream').evaluateAll((svgs) =>
+    Math.max(...svgs.map((svg) => svg.getBoundingClientRect().right - svg.closest('.sheet-stream-box')!.getBoundingClientRect().left)));
+  expect(Math.abs(widest * 25.4 / 96 * auto / 100 - (210 - 50.8))).toBeLessThan(1);
+
+  // A larger requested scale is lowered so every line still fits; a smaller one is kept.
+  const scaling = page.locator('.export-row[data-field="scale"]');
+  await scaling.getByRole('button').click();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.type('20');
+  await page.keyboard.press('Enter');
+  await expect(summary).toHaveAttribute('data-scale', '20');
+  const pages = Number(await summary.getAttribute('data-pages'));
+  expect(JSON.parse(await page.evaluate(() => localStorage.getItem('nhacode:sheet:pdf')!)).scale).toBe(20);
+
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Export PDF' }).click()]);
+  expect(download.suggestedFilename()).toBe('fur-elise.pdf');
+  const pdf = (await (await import('node:fs/promises')).readFile(await download.path())).toString('latin1');
+  expect(pdf.startsWith('%PDF-')).toBe(true);
+  expect(pdf.match(/\/Type \/Page\b/g)?.length).toBe(pages);
+  expect(pdf).toMatch(/\/MediaBox \[0 0 595\.2799\d* 841\.889\d*\]/);
+});
