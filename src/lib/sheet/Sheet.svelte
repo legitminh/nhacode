@@ -1,6 +1,6 @@
 <script lang="ts">
   import { ButtonPositional, Document, InputFrame, StaticButton, create_input_frame, input_frame_manager, min_box, must_view } from '@legitminh/keyflow';
-  import { columnAt, layoutMarks, layoutPedals, layoutSystems, type MeasureLayout, type SheetNote, type StreamLayout } from './layout';
+  import { columnAt, layoutMarks, layoutPedals, layoutSystems, stackStream, type SheetNote, type StackedStream, type StreamLayout } from './layout';
   import type { Song } from './types';
   import { octaveLineColor } from '../colors';
 
@@ -84,53 +84,23 @@
     line.scrollIntoView({ block: 'start', behavior: 'smooth' });
   });
 
-  // A lane whose notes carry modifiers gets an extra half row for them, above or below the digit.
+  // A note with modifiers gets an extra half row for them, above or below the digit.
   const MOD = $derived(ROW / 2);
-  function laneHeight(stream: StreamLayout, octave: number, lane: number) {
-    return ROW + (articulations && stream.mods[octave]?.[lane] ? MOD : 0);
-  }
-  function octaveHeight(stream: StreamLayout, octave: number) {
-    let h = 0;
-    for (let lane = 0; lane < stream.lanes[octave]; lane++) h += laneHeight(stream, octave, lane);
-    return h;
-  }
-
-  /** Top of the octave block o (just below its line) inside a stream. */
-  function blockTop(stream: StreamLayout, octave: number) {
-    let y = GAP;
-    for (let o = 0; o < octave; o++) y += octaveHeight(stream, o) + GAP;
-    return y;
-  }
-
-  function streamHeight(stream: StreamLayout) {
-    const last = stream.lanes.length - 1;
-    return blockTop(stream, last) + octaveHeight(stream, last);
-  }
+  /** Each column stacks outward from the origin line on its own (see stackStream). */
+  const stack = (stream: StreamLayout) => stackStream(stream, { row: ROW, mod: articulations ? MOD : 0, gap: GAP });
 
   /** Where a note's digit and its modifiers sit, after any inversion. */
-  function place(stream: StreamLayout, note: SheetNote, height: number) {
-    let top = blockTop(stream, note.octave);
-    for (let lane = 0; lane < note.lane; lane++) top += laneHeight(stream, note.octave, lane);
-    const h = laneHeight(stream, note.octave, note.lane);
+  function place(stacked: StackedStream, note: SheetNote, height: number) {
+    const top = stacked.tops.get(note)!;
+    const h = stacked.heights.get(note)!;
     const visualTop = inverted ? height - top - h : top;
     const room = h > ROW;
     const below = modifierPosition === 'below';
+    if (note.skip) return { y: visualTop + h / 2, modY: visualTop + h / 2 };
     return {
       y: visualTop + (room && !below ? MOD : 0) + ROW / 2,
       modY: below ? visualTop + ROW + MOD / 2 : visualTop + MOD / 2,
     };
-  }
-
-  /** Runs of consecutive frames where octave line o is needed. */
-  function lineRuns(measure: MeasureLayout, octave: number) {
-    const runs: [number, number][] = [];
-    measure.reach.forEach((reach, frame) => {
-      if (reach < octave) return;
-      const last = runs.at(-1);
-      if (last && last[1] === frame) last[1] = frame + 1;
-      else runs.push([frame, frame + 1]);
-    });
-    return runs;
   }
 
   function offsets(stream: StreamLayout) {
@@ -215,12 +185,18 @@
           {/if}
           {#each inverted ? [...system.hands].reverse() : system.hands as { hand, stream }}
           {@const xs = offsets(stream)}
-          {@const height = streamHeight(stream)}
+          {@const stacked = stack(stream)}
+          {@const height = stacked.height}
           <svg class="sheet-stream" data-stream={index} data-hand={hand} width={stream.frames * CELL} height={height}
             viewBox={`0 0 ${stream.frames * CELL} ${height}`} role="img"
             aria-label={`${hand === 'both' ? '' : `${HAND_NAMES[hand]}, `}measures ${stream.measures[0].number} to ${stream.measures.at(-1)!.number}`}>
             <line class="octave-zero" data-line="0" style:stroke={octaveLineColor(0)} x1="0" x2={stream.frames * CELL}
               y1={flip(ORIGIN / 2, height)} y2={flip(ORIGIN / 2, height)} stroke-width={ORIGIN} />
+            {#each stacked.lines as line}
+              {@const y = flip(line.y, height)}
+              <line class="octave-line" data-octave={line.octave} data-line={line.octave} style:stroke={octaveLineColor(line.octave)} stroke-width={OCTAVE}
+                x1={line.from * CELL + 1} x2={line.to * CELL - 1} y1={y} y2={y} />
+            {/each}
             {#each stream.measures as measure, m}
               <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
               <g class="sheet-measure" class:seekable={!!onseek} data-measure={measure.number} data-index={measure.index}
@@ -235,26 +211,17 @@
                     width={CELL - 2} height={height - 2} />
                 {/if}
                 {#if m > 0}<line class="barline" x1="0" x2="0" y1="0" y2={height} />{/if}
-                {#each stream.lanes as _, octave}
-                  {#if octave > 0}
-                    {#each lineRuns(measure, octave) as [from, to]}
-                      {@const y = flip(blockTop(stream, octave) - GAP / 2, height)}
-                      <line class="octave-line" data-octave={octave} data-line={octave} style:stroke={octaveLineColor(octave)} stroke-width={OCTAVE} x1={from * CELL + 1} x2={to * CELL - 1}
-                        y1={y} y2={y} />
-                    {/each}
-                  {/if}
-                {/each}
                 {#each measure.notes as note}
-                  {@const spot = place(stream, note, height)}
+                  {@const spot = place(stacked, note, height)}
                   {@const y = spot.y}
                   {#if !note.tied}
                     {@const x = note.frame * CELL + CELL / 2}
-                    <text class="sheet-note" class:grace={note.grace} data-midi={note.midi} style:fill={octaveLineColor(note.octave)} {x} {y}>{note.digit}</text>
+                    {#if !note.skip}<text class="sheet-note" class:grace={note.grace} data-midi={note.midi} style:fill={octaveLineColor(note.octave)} {x} {y}>{note.digit}</text>{/if}
                     {#if articulations && (note.art.length || note.grace)}
                       {@const marks = [...(note.grace ? ['grace'] : []), ...note.art.filter((a) => a !== 'arpeggio')]}
                       {@const size = Math.min(CELL * .85, MOD * .85)}
                       {@const my = spot.modY}
-                      <g class="articulations" data-art={[...(note.grace ? ['grace'] : []), ...note.art].join(' ')}
+                      <g class="articulations" class:skip={note.skip} data-art={note.skip ? 'skip' : [...(note.grace ? ['grace'] : []), ...note.art].join(' ')}
                         style:stroke={octaveLineColor(note.octave)} style:fill={octaveLineColor(note.octave)}>
                         {#each marks as art, i}
                           {@const ax = x + (i - (marks.length - 1) / 2) * size * 1.15}

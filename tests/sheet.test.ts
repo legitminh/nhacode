@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { digitOf, layoutMeasure, layoutStreams, octaveOf } from '../src/lib/sheet/layout.ts';
+import { digitOf, layoutMeasure, layoutStreams, octaveOf, stackStream } from '../src/lib/sheet/layout.ts';
+import type { SongNote } from '../src/lib/sheet/types.ts';
+
+/** Stacks one measure as a stream with digit row 10, modifier room 5 and line gap 1. */
+function stacked(notes: SongNote[], duration = 4) {
+  const measure = layoutMeasure({ number: '1', duration, resolution: 1, notes });
+  const result = stackStream({ measures: [measure], frames: measure.frames }, { row: 10, mod: 5, gap: 1 });
+  const top = (midi: number) => result.tops.get(measure.notes.find((n) => n.midi === midi)!)!;
+  return { measure, result, top };
+}
 
 test('notes become A-based hex digits and octaves', () => {
   assert.equal(digitOf(21), '0'); // A0
@@ -18,32 +27,36 @@ test('a measure is split into frames of its resolution, with holds and octave re
   ] });
   assert.equal(layout.frames, 4);
   assert.deepEqual(layout.reach, [0, 0, 1, -1]);
-  assert.deepEqual(layout.notes.map((n) => [n.digit, n.octave, n.frame, n.frames, n.lane]), [['0', 0, 0, 2, 0], ['0', 1, 2, 1, 0]]);
-  assert.deepEqual(layout.lanes, [1, 1]);
+  assert.deepEqual(layout.notes.map((n) => [n.digit, n.octave, n.frame, n.frames]), [['0', 0, 0, 2], ['0', 1, 2, 1]]);
 });
 
-test('overlapping notes stack by ascending pitch; back-to-back notes share a row', () => {
-  const layout = layoutMeasure({ number: '1', duration: 4, resolution: 1, notes: [
-    { start: 0, duration: 2, midi: 23 }, // B0, frames 0-1
-    { start: 0, duration: 1, midi: 21 }, // A0, frame 0
-    { start: 2, duration: 2, midi: 22 }, // A♯0 starts right after B ends
-    { start: 1, duration: 1, midi: 25 }, // C♯ overlaps B
-  ] });
-  const lane = (midi: number) => layout.notes.find((n) => n.midi === midi)!.lane;
-  assert.ok(lane(21) < lane(23));
-  assert.ok(lane(23) < lane(25));
-  assert.equal(lane(22), 0);
-  assert.equal(layout.lanes[0], 3);
+test('each column stacks on its own: octave lines and notes in pitch order from the origin line', () => {
+  // 8 in octave 2, then 0 in octave 3: the 0 sits one octave line higher than the 8.
+  const apart = stacked([{ start: 0, duration: 1, midi: 21 + 24 + 8 }, { start: 1, duration: 1, midi: 21 + 36 }]);
+  assert.equal(apart.top(21 + 24 + 8), 3); // origin + lines 1, 2
+  assert.equal(apart.top(21 + 36), 4);     // origin + lines 1, 2, 3
+  assert.deepEqual(apart.result.lines.map((l) => [l.octave, l.from, l.to, l.y]), [[1, 0, 2, 1.5], [2, 0, 2, 2.5], [3, 1, 2, 3.5]]);
+  // Held 8: the 0 moves above the 8's dash (and the line of octave 3 with it).
+  const held = stacked([{ start: 0, duration: 2, midi: 21 + 24 + 8 }, { start: 1, duration: 1, midi: 21 + 36 }]);
+  assert.equal(held.top(21 + 24 + 8), 3);
+  assert.equal(held.top(21 + 36), 3 + 10 + 1);
+  // Held 8 and a 0 in the same octave: the whole 8 moves up so its dash clears the 0.
+  const same = stacked([{ start: 0, duration: 2, midi: 21 + 24 + 8 }, { start: 1, duration: 1, midi: 21 + 24 }]);
+  assert.equal(same.top(21 + 24), 3);
+  assert.equal(same.top(21 + 24 + 8), 13);
+  // A note with modifiers takes extra room.
+  const marked = stacked([{ start: 0, duration: 1, midi: 21, art: ['staccato'] }, { start: 0, duration: 1, midi: 23 }]);
+  assert.equal(marked.top(23), 1 + 15);
+  assert.equal(marked.result.height, 1 + 15 + 10);
 });
 
-test('measures wrap into streams by width and share lane counts', () => {
+test('measures wrap into streams by width', () => {
   const a = layoutMeasure({ number: '1', duration: 4, resolution: 1, notes: [{ start: 0, duration: 1, midi: 21 }] });
   const b = layoutMeasure({ number: '2', duration: 4, resolution: 1, notes: [{ start: 0, duration: 1, midi: 60 }] });
   const streams = layoutStreams([a, b, a], 8);
   assert.deepEqual(streams.map((s) => s.measures.map((m) => m.number)), [['1', '2'], ['1']]);
-  assert.deepEqual(streams[0].lanes, [1, 0, 0, 1]);
+  assert.equal(streams[0].frames, 8);
 });
-
 test('song search matches title or composer words, accents ignored, and requires every tag', async () => {
   const { findSongs } = await import('../src/lib/sheet/search.ts');
   const list = [
@@ -76,6 +89,31 @@ test('separate hands split each measure by hand and keep both hands aligned', as
   assert.deepEqual(left.measures[0].notes.map((n) => n.midi), [45]);
   assert.equal(right.frames, left.frames);
   assert.deepEqual(apart[1].hands[1].stream.measures[0].notes, []);
+});
+
+test('separate hands share grace and arpeggio columns; the other hand skips them with a cross', async () => {
+  const { layoutSystems } = await import('../src/lib/sheet/layout.ts');
+  const measures = [{ number: '1', duration: 4, resolution: 1, notes: [
+    { start: 1, duration: 0, midi: 60, grace: true },
+    { start: 1, duration: 1, midi: 62 },
+    { start: 1, duration: 1, midi: 40, hand: 'left' as const },
+    { start: 3, duration: 1, midi: 38, hand: 'left' as const, art: ['arpeggio' as const] },
+    { start: 3, duration: 1, midi: 45, hand: 'left' as const, art: ['arpeggio' as const] },
+    { start: 3, duration: 1, midi: 64 },
+  ] }];
+  const [left, right] = layoutSystems(measures, 100, true)[0].hands.map((h) => h.stream.measures[0]);
+  // One grace column before frame 1 and one arpeggio column before frame 3, in both hands.
+  assert.deepEqual(left.columnOf, [0, 2, 3, 5, 6]);
+  assert.deepEqual(right.columnOf, left.columnOf);
+  assert.equal(left.notes.find((n) => n.midi === 40)!.frame, right.notes.find((n) => n.midi === 62)!.frame);
+  assert.equal(left.notes.find((n) => n.midi === 38)!.frame, right.notes.find((n) => n.midi === 64)!.frame);
+  // The left hand skips the grace column, the right hand skips the arpeggio column.
+  const skips = (m: typeof left) => m.notes.filter((n) => n.skip).map((n) => [n.frame, n.octave, n.grace]);
+  assert.deepEqual(skips(left), [[1, 0, true]]);
+  assert.deepEqual(skips(right), [[4, 0, true]]);
+  // A skip is the lowest thing in its column, just past the origin line.
+  const stack = stackStream({ measures: [left], frames: left.frames }, { row: 10, mod: 5, gap: 1 });
+  assert.equal(stack.tops.get(left.notes.find((n) => n.skip)!), 1);
 });
 
 test('markings group by frame, overlapping ones move to new rows, and hairpins continue across systems', async () => {
@@ -163,7 +201,7 @@ test('playback velocity follows dynamics and hairpins; staccato, accents and arp
   assert.ok(on('1:0').time < on('1:1').time && on('1:1').time < on('1:2').time);
 });
 
-test('grace notes and rolled chords get their own columns; modifiers mark their lane', () => {
+test('grace notes and rolled chords get their own columns; no skips when the stream is whole', () => {
   const layout = layoutMeasure({ number: '1', duration: 4, resolution: 1, notes: [
     { start: 1, duration: 0, midi: 60, grace: true },
     { start: 1, duration: 0, midi: 62, grace: true },
@@ -177,7 +215,7 @@ test('grace notes and rolled chords get their own columns; modifiers mark their 
   const at = (midi: number, grace = false) => layout.notes.find((n) => n.midi === midi && n.grace === grace && (grace || n.frame !== 6 || midi !== 60))!;
   assert.deepEqual(layout.notes.filter((n) => n.grace).map((n) => [n.midi, n.frame]), [[60, 1], [62, 2]]);
   assert.equal(at(64).frame, 3);
-  assert.ok(layout.mods[octaveOf(64)][at(64).lane]);
+  assert.ok(!layout.notes.some((n) => n.skip));
 });
 
 test('playback plays grace notes just before the beat, trills alternate, and fermatas pause', async () => {

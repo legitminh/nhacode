@@ -117,11 +117,16 @@ The sheet has no stave; it only shows which key is pressed when:
 - A note's start shows its pitch class in lowercase hex (0 = A … b = G♯); each
   further frame it is held shows a dash. Ties from the previous measure show
   dashes only. Empty frames are blank.
-- Notes sounding together stack by ascending pitch (lower on top); notes that
-  don't overlap share a row.
+- Each column stacks on its own, outward from the origin line: octave lines and
+  notes in pitch order (lower nearer the origin), each note as close to the origin
+  as it can sit. A note keeps one height for its digit and its dashes, so it clears
+  everything lower in pitch in every column it covers: a held 8 pushes a later 0 of
+  a higher octave above its dash, and a 0 in the same octave pushes the held 8 up.
+  Notes of the same octave need not share a row across the line.
 - Each stream (line of measures) starts with one thick line above octave 0. Each
-  higher octave adds a thin line above its block, drawn only over the frames that
-  reach that octave, so the number of lines above a digit is its octave. Lines are
+  higher octave adds a thin line just before its first note in a column, drawn only
+  over the columns that reach that octave (so lines step between columns), and the
+  number of lines above a digit is its octave. Lines are
   colored with Keyflow's `distribute_color` by index: the thick origin line is 0,
   the line above octave n is n. Digits and hold dashes take their octave's color
   too, so each octave block matches the line above it.
@@ -133,7 +138,11 @@ The sheet has no stave; it only shows which key is pressed when:
   near the right edge slides left to stay inside the line.
 - **Sheet pane → Hands** switches between one stream per line (Together) and one
   mega stream per line (Separate): the left-hand stream above the right-hand
-  stream under a thick bar, both wrapped at the same measures. Hands come from the score: a piano grand staff's
+  stream under a thick bar, both wrapped at the same measures. The left and right
+  streams share their columns, so a column is the same moment in both: when one hand
+  needs extra columns (grace notes, a rolled chord), the other hand skips them, and
+  each skipped column shows the grace cross on its origin line, like an invisible
+  grace note in octave 0. Hands come from the score: a piano grand staff's
   lower staff is the left hand; other staves count as left hand when in bass clef.
 - **Sheet pane → Order: Inverted** flips each stream vertically: octave 0 and its
   thick line go to the bottom, higher octaves sit above, and in a mega stream the

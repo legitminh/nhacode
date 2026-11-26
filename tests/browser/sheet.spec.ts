@@ -45,7 +45,7 @@ test('Für Elise renders as wrapped streams of hex digits with octave lines', as
   // The opening E5–D♯5 motif: E is digit 7 in the A-based octave 4, so four thin lines sit above it.
   const first = page.locator('.sheet-measure').first();
   expect(await first.locator('.sheet-note').allTextContents()).toEqual(expect.arrayContaining(['7', '6']));
-  await expect(first.locator('.octave-line[data-octave="4"]')).not.toHaveCount(0);
+  await expect(streams.first().locator('.octave-line[data-octave="4"]')).not.toHaveCount(0);
   // Lines take Keyflow's distribute_color by index: origin is 0, the line above octave n is n.
   const strokes = await page.locator('.sheet-stream').first().evaluate((svg) => Object.fromEntries(
     [...svg.querySelectorAll('[data-line]')].map((line) => [line.getAttribute('data-line'), getComputedStyle(line).stroke])));
