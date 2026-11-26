@@ -309,11 +309,28 @@ def parse_score(xml):
         staves = 1
         clefs = {}  # staff number -> clef sign, to tell hands apart
         open_ties = {}  # (staff, voice, midi) -> note dict, awaiting a tie stop
+        ending = None  # numbers of the volta (1st/2nd ending) bracket open over these measures
         for index, measure in enumerate(part.findall('measure')):
             if index == len(measures):
                 measures.append({'number': measure.get('number', str(index + 1)), 'duration': 0, 'notes': [], 'spans': [], 'marks': []})
             out = measures[index]
             pos = last_start = end = 0
+            # Repeat barlines and volta brackets; every part carries them, the first one counts.
+            for barline in measure.findall('barline'):
+                repeat = barline.find('repeat')
+                if repeat is not None and repeat.get('direction') == 'forward':
+                    out.setdefault('repeat', {})['start'] = True
+                elif repeat is not None and repeat.get('direction') == 'backward':
+                    out.setdefault('repeat', {})['end'] = int(repeat.get('times', '2'))
+                volta = barline.find('ending')
+                if volta is not None and volta.get('type') == 'start':
+                    ending = [int(n) for n in re.findall(r'\d+', volta.get('number', '1'))] or [1]
+            if ending:
+                out.setdefault('ending', ending)
+            for barline in measure.findall('barline'):
+                volta = barline.find('ending')
+                if volta is not None and volta.get('type') in ('stop', 'discontinue'):
+                    ending = None
             for element in measure:
                 if element.tag == 'attributes':
                     if element.find('divisions') is not None:
@@ -455,6 +472,10 @@ def simplify(song_id, title, tempo_scale=1, measure_lengths=None):
             item['pedals'] = pedals
         if measure.get('time'):
             item['time'] = measure['time']
+        if measure.get('repeat'):
+            item['repeat'] = measure['repeat']
+        if measure.get('ending'):
+            item['ending'] = measure['ending']
         out_measures.append(item)
 
     song = {
