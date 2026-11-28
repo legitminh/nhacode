@@ -272,12 +272,18 @@ test('Für Elise: the pickup and the first ending are short, and the ending star
   assert.deepEqual(clicks.filter((c) => c.position.measure === 8).map((c) => c.kind), ['strong', 'weak']);
 });
 
-test('quarter markers strike every four octave lines in a row with nothing between them', () => {
-  // Column 0: a note in octave 5 (lines 1–5, nothing below): one marker over lines 0–3.
-  // Column 1: a note in octave 1 sits between lines 1 and 2, so no marker for 0–3; lines 4–7 above it are clear.
-  const { result } = stacked([{ start: 0, duration: 1, midi: 21 + 60 }, { start: 1, duration: 1, midi: 21 + 12 }, { start: 1, duration: 1, midi: 21 + 84 }]);
-  assert.deepEqual(result.quarters.map((q) => [q.column, q.octave, q.from, q.to]), [[0, 0, undefined, 3.5], [1, 4, 14.5, 17.5]]);
-  // Eight empty lines: two markers, 0–3 and 4–7.
-  const eight = stacked([{ start: 0, duration: 1, midi: 21 + 96 }]);
-  assert.deepEqual(eight.result.quarters.map((q) => [q.octave, q.from, q.to]), [[0, undefined, 3.5], [4, 4.5, 7.5]]);
+test('simplify octave line turns four lines in a row into a diamond, then two into a V', () => {
+  const notes = [{ start: 0, duration: 1, midi: 21 + 60 }, { start: 1, duration: 1, midi: 21 + 12 }, { start: 1, duration: 1, midi: 21 + 84 }];
+  // Off by default: no glyphs, every line drawn.
+  assert.deepEqual(stacked(notes).result.glyphs, []);
+  const { measure } = stacked(notes);
+  const result = stackStream({ measures: [measure], frames: measure.frames }, { row: 10, mod: 5, gap: 1 }, true);
+  // Column 0: a note in octave 5 (lines 1–5 together): a diamond for 1–4, line 5 stays.
+  // Column 1: a note in octave 1 sits after line 1, so line 1 stays; lines 2–7 make a diamond (2–5) and a V (6–7).
+  assert.deepEqual(result.glyphs.map((g) => [g.column, g.shape, g.octaves.join('')]),
+    [[0, 'diamond', '1234'], [1, 'diamond', '2345'], [1, 'v', '67']]);
+  assert.deepEqual(result.glyphs[0].ys, [1.5, 2.5, 3.5, 4.5]);
+  const drawn = (column: number) => result.lines.filter((l) => l.from <= column && column < l.to).map((l) => l.octave).sort();
+  assert.deepEqual(drawn(0), [5]);
+  assert.deepEqual(drawn(1), [1]);
 });

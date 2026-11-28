@@ -44,7 +44,7 @@
   let lineWidths = $state(loadLineWidths());
   let keyBorder = $state(loadKeyBorder());
   let separateHands = $state(readPref('sheet:separate-hands', false, isBoolean));
-  let quarterMarker = $state(readPref('sheet:quarter-marker', true, isBoolean));
+  let simplifyOctaveLine = $state(readPref('sheet:simplify-octave-line', true, isBoolean));
   let repeatMode = $state(readPref('sheet:repetition', 'expand', (value): value is RepeatMode => REPEAT_MODES.includes(value as RepeatMode)));
   let inverted = $state(readPref('sheet:inverted', false, isBoolean));
   let articulations = $state(readPref('sheet:articulations', true, isBoolean));
@@ -237,9 +237,9 @@
     writePref('sheet:inverted', value);
   }
 
-  function setQuarterMarker(value: boolean) {
-    quarterMarker = value;
-    writePref('sheet:quarter-marker', value);
+  function setSimplifyOctaveLine(value: boolean) {
+    simplifyOctaveLine = value;
+    writePref('sheet:simplify-octave-line', value);
   }
 
   function setRepeatMode(value: RepeatMode) {
@@ -281,7 +281,7 @@
       <Settings bind:open={settingsOpen} {transposed} {instrumentId} {range}
         ontranspose={setTransposed} oninstrument={selectInstrument} onrange={selectRange}
         {margins} onmargin={setMargin} {lineWidths} online={setLineWidth}
-        {keyBorder} onkeyborder={setKeyBorder} {separateHands} onseparatehands={setSeparateHands} {repeatMode} onrepeatmode={setRepeatMode} {quarterMarker} onquartermarker={setQuarterMarker}
+        {keyBorder} onkeyborder={setKeyBorder} {separateHands} onseparatehands={setSeparateHands} {repeatMode} onrepeatmode={setRepeatMode} {simplifyOctaveLine} onsimplifyoctaveline={setSimplifyOctaveLine}
         {inverted} oninverted={setInverted} {articulations} onarticulations={setArticulations} {modifierPosition} onmodifiers={setModifierPosition}
         {autoscroll} onautoscroll={setAutoscroll} {pedalPosition} onpedal={setPedalPosition}
         {playback} onplayback={setPlayback} {playbackInstrumentId} onplaybackinstrument={setPlaybackInstrument} />
@@ -321,7 +321,7 @@
         </section>
       {/if}
       {#if showSheet}
-        <div class="sheet-view"><Sheet {songId} {lineWidths} {separateHands} {repeatMode} {quarterMarker} {inverted} {articulations} {modifierPosition} {pedalPosition}
+        <div class="sheet-view"><Sheet {songId} {lineWidths} {separateHands} {repeatMode} {simplifyOctaveLine} {inverted} {articulations} {modifierPosition} {pedalPosition}
           follow={autoscroll ? (player.playing ? player.position : metronome.running ? metronome.position : undefined) : undefined}
           playhead={playback ? player.position : undefined} onseek={playback ? (measure) => player.seek(measure) : undefined}
           metronomeHead={metronome.position} {picking} onpick={pickStart} oncancelpick={() => { picking = false; }}
