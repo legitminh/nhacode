@@ -7,8 +7,8 @@
 import { A4, layoutPdf, type LineSize, type PdfLayout, type PdfSettings } from './pdf-layout';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
-/** Screen-only layers: hit areas, playback and metronome cursors, measure pickers. */
-const SKIP = '.measure-hit, .playhead, .metronome-head, .pick-layer';
+/** Screen-only layers: hit areas, the playback/metronome pointer, measure pickers. */
+const SKIP = '.measure-hit, .playhead, .pick-layer';
 const STYLES = [
   'fill', 'fill-opacity', 'stroke', 'stroke-width', 'stroke-opacity', 'stroke-linecap', 'stroke-linejoin',
   'stroke-dasharray', 'opacity', 'font-size', 'font-style', 'font-weight', 'text-anchor', 'dominant-baseline', 'visibility',
@@ -76,8 +76,10 @@ function lineSvg(box: HTMLElement): SheetLine {
     const r = part.getBoundingClientRect();
     if (!r.width || !r.height) continue;
     const clone = part.cloneNode(true) as SVGSVGElement;
+    // Drop screen-only layers before inlining, which strips the classes that find them.
+    const skipped = clone.querySelectorAll(SKIP);
     inlineStyles(part, clone);
-    clone.querySelectorAll(SKIP).forEach((element) => element.remove());
+    skipped.forEach((element) => element.remove());
     clone.setAttribute('x', String(r.left - origin.left));
     clone.setAttribute('y', String(r.top - origin.top));
     clone.setAttribute('width', String(r.width));

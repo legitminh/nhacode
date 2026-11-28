@@ -419,17 +419,30 @@ test('playback menu picks a start measure, and the metronome runs with saved set
   await page.keyboard.press('Escape');
   await expect(page.locator('.pick-banner')).toHaveCount(0);
 
-  // The metronome starts at the playhead and moves its own cursor.
+  // The metronome starts at the pointer and moves the same pointer the player uses.
   await page.keyboard.press('n');
   await expect(page.locator('.metronome-toggle')).toHaveAttribute('data-playing', 'true');
-  await expect(page.locator('.metronome-head')).toHaveCount(1);
-  // Read the cursor fresh each time: it re-renders as it moves between measures.
-  const metronomeMeasure = () => page.evaluate(() =>
-    Number(document.querySelector('.metronome-head')?.closest('[data-index]')?.getAttribute('data-index') ?? -1));
-  await expect.poll(metronomeMeasure, { timeout: 8000 }).toBeGreaterThan(7);
+  await expect(page.locator('.play-toggle')).toHaveAttribute('data-playing', 'false');
+  await expect(page.locator('.playhead')).toHaveCount(1);
+  // Read the pointer fresh each time: it re-renders as it moves between measures.
+  const pointerMeasure = () => page.evaluate(() =>
+    Number(document.querySelector('.playhead')?.closest('[data-index]')?.getAttribute('data-index') ?? -1));
+  await expect.poll(pointerMeasure, { timeout: 8000 }).toBeGreaterThan(7);
+  // Starting the music too keeps one pointer moving; stopping the metronome leaves the music playing.
+  await page.keyboard.press('p');
+  await expect(page.locator('.play-toggle')).toHaveAttribute('data-playing', 'true');
+  await expect(page.locator('.playhead')).toHaveCount(1);
   await page.keyboard.press('n');
   await expect(page.locator('.metronome-toggle')).toHaveAttribute('data-playing', 'false');
-  await expect(page.locator('.metronome-head')).toHaveCount(0);
+  const playing = await pointerMeasure();
+  await expect.poll(pointerMeasure, { timeout: 8000 }).toBeGreaterThan(playing);
+  // With both off the pointer stays where it stopped.
+  await page.keyboard.press('p');
+  await expect(page.locator('.play-toggle')).toHaveAttribute('data-playing', 'false');
+  await expect(page.locator('.playhead')).toHaveCount(1);
+  const stopped = await pointerMeasure();
+  await page.waitForTimeout(600);
+  expect(await pointerMeasure()).toBe(stopped);
 
   // Metronome settings are Keyflow NumberBoxes (0–8) and are remembered.
   await page.keyboard.press('t');
@@ -579,6 +592,16 @@ test('export panel downloads an A4 PDF with whole stream lines per page', async 
   await expect(summary).toHaveAttribute('data-scale', '20');
   const pages = Number(await summary.getAttribute('data-pages'));
   expect(JSON.parse(await page.evaluate(() => localStorage.getItem('nhacode:sheet:pdf')!)).scale).toBe(20);
+
+  // The pointer is on screen (one per hand here) but not in the exported lines.
+  await expect(page.locator('.playhead')).toHaveCount(2);
+  const exported = () => page.evaluate(async () => {
+    const { readSheet } = await import('/src/lib/sheet/pdf-export.ts');
+    return readSheet()!.lines.map((line) => line.svg.outerHTML).join('');
+  });
+  const withPointer = await exported();
+  await page.evaluate(() => document.querySelectorAll('.playhead').forEach((rect) => rect.remove()));
+  expect(withPointer).toBe(await exported());
 
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Export PDF' }).click()]);
   expect(download.suggestedFilename()).toBe('fur-elise.pdf');

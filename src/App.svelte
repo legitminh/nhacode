@@ -1,6 +1,6 @@
 <script lang="ts">
   import { REPEAT_MODES, type RepeatMode } from './lib/sheet/repeats';
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy, untrack } from 'svelte';
   import { Keyflow, KeyboardDisplay, interaction, type InteractionEvent } from '@legitminh/keyflow';
   import PianoKey from './lib/PianoKey.svelte';
   import Settings from './lib/Settings.svelte';
@@ -53,22 +53,24 @@
   let playback = $state(readPref('sheet:playback', true, isBoolean));
   const savedPlaybackInstrument = instruments.find((item) => item.id === readPref('sheet:playback-instrument', '', isString)) ?? instruments[0];
   let playbackInstrumentId = $state(savedPlaybackInstrument.id);
-  const player = new Player(savedPlaybackInstrument);
   const isSpeed = (value: unknown): value is number => typeof value === 'number' && value >= 0.25 && value <= 2;
   let playbackSpeed = $state(readPref('sheet:playback-speed', 1, isSpeed));
-  player.setSpeed(readPref('sheet:playback-speed', 1, isSpeed));
   let pedalPosition = $state(readPref('sheet:pedal', 'below', (value): value is 'below' | 'above' => value === 'below' || value === 'above'));
   const isMetronome = (value: unknown): value is MetronomeSettings => typeof value === 'object' && value !== null
     && (['strong', 'weak', 'between', 'sub'] as const).every((key) => Number.isInteger((value as MetronomeSettings)[key]));
   const savedMetronome = readPref('sheet:metronome', DEFAULT_METRONOME, isMetronome);
   let metronomeSettings = $state(savedMetronome);
-  const metronome = new Metronome(savedMetronome);
-  // The metronome follows whichever song the player has loaded.
-  $effect(() => { metronome.load(player.timeline); });
+  // One transport and pointer for the music and the metronome (see Player).
+  const player = new Player(savedPlaybackInstrument, new Metronome(savedMetronome));
+  player.setSpeed(readPref('sheet:playback-speed', 1, isSpeed));
   let picking = $state(false);
+  /** The shared pointer shows with the playback tool, or while the metronome moves it. */
+  const pointer = $derived(playback || player.playing);
   // Playback only runs while the sheet and its playback tool are shown.
-  $effect(() => { if (!showSheet || !playback) { player.pause(); picking = false; } });
-  $effect(() => { if (!showSheet) metronome.stop(); });
+  // The music only plays while the sheet and its playback tool are shown; the metronome while the sheet is.
+  $effect(() => { if (!showSheet) player.stop(); });
+  $effect(() => { if (!playback) { untrack(() => { if (player.notes) player.pause(); }); picking = false; } });
+  $effect(() => { if (!showSheet) picking = false; });
   let songId = $state(readPref('song', (songs.find((song) => song.id === 'fur-elise') ?? songs[0])?.id ?? '', (value): value is string => songs.some((song) => song.id === value)));
   let generation = 0;
   const noteRows = $derived(NOTE_NAMES.map((_, row) => octaves.map((octave) => noteAt(octave, row))));
@@ -181,13 +183,12 @@
 
   function setMetronome(settings: MetronomeSettings) {
     metronomeSettings = settings;
-    metronome.configure(settings);
+    player.configureMetronome(settings);
     writePref('sheet:metronome', settings);
   }
 
   function toggleMetronome() {
-    if (metronome.running) metronome.stop();
-    else void metronome.start(player.songTime());
+    player.toggleMetronome();
   }
 
   function setPlaybackSpeed(speed: number) {
@@ -263,7 +264,7 @@
   }
 
   onMount(() => { void prepare(); });
-  onDestroy(() => { engine.dispose(); player.dispose(); metronome.dispose(); });
+  onDestroy(() => { engine.dispose(); player.dispose(); });
 </script>
 
 <Keyflow options={{ storagePrefix: 'nhacode:', lockstep: false, themes: [
@@ -295,11 +296,11 @@
       {#if showSheet}
         {#if playback}
           <PlaybackMenu disabled={settingsOpen} speed={playbackSpeed} onspeed={setPlaybackSpeed} onpick={() => { picking = true; }} />
-          <PlayButton playing={player.playing} disabled={settingsOpen} ontoggle={() => player.toggle()} />
+          <PlayButton playing={player.notes} disabled={settingsOpen} ontoggle={() => player.toggle()} />
         {/if}
         <SongMenu {songId} disabled={settingsOpen} onselect={selectSong} />
         <MetronomeMenu settings={metronomeSettings} disabled={settingsOpen} onchange={setMetronome} />
-        <PlayButton playing={metronome.running} disabled={settingsOpen} ontoggle={toggleMetronome}
+        <PlayButton playing={player.clicks} disabled={settingsOpen} ontoggle={toggleMetronome}
           keys="n" name="metronome" class="metronome-toggle" />
         <ExportMenu disabled={settingsOpen} />
       {/if}
@@ -322,9 +323,9 @@
       {/if}
       {#if showSheet}
         <div class="sheet-view"><Sheet {songId} {lineWidths} {separateHands} {repeatMode} {simplifyOctaveLine} {inverted} {articulations} {modifierPosition} {pedalPosition}
-          follow={autoscroll ? (player.playing ? player.position : metronome.running ? metronome.position : undefined) : undefined}
-          playhead={playback ? player.position : undefined} onseek={playback ? (measure) => player.seek(measure) : undefined}
-          metronomeHead={metronome.position} {picking} onpick={pickStart} oncancelpick={() => { picking = false; }}
+          follow={autoscroll && player.playing ? player.position : undefined}
+          playhead={pointer ? player.position : undefined} onseek={pointer ? (measure) => player.seek(measure) : undefined}
+          {picking} onpick={pickStart} oncancelpick={() => { picking = false; }}
           onsong={(song) => player.load(song)} /></div>
       {/if}
     </div>

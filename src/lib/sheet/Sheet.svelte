@@ -10,7 +10,7 @@
 
   import type { Position } from './timeline';
 
-  let { songId, lineWidths, separateHands = false, repeatMode = 'expand', simplifyOctaveLine = true, inverted = false, articulations = true, modifierPosition = 'above', follow, pedalPosition = 'below', playhead, metronomeHead, picking = false, onpick, oncancelpick,
+  let { songId, lineWidths, separateHands = false, repeatMode = 'expand', simplifyOctaveLine = true, inverted = false, articulations = true, modifierPosition = 'above', follow, pedalPosition = 'below', playhead, picking = false, onpick, oncancelpick,
     onseek, onsong }: {
     songId: string; lineWidths: LineWidths; separateHands?: boolean; inverted?: boolean;
     /** How repeated sections are shown; playback always follows them. */
@@ -25,10 +25,8 @@
     follow?: Position;
     /** Where the sustain-pedal stream goes, when the score has pedal marks. */
     pedalPosition?: 'below' | 'above';
-    /** Where playback is; its time frame is highlighted. */
+    /** The shared pointer of playback and the metronome; its time frame is highlighted. Not exported. */
     playhead?: Position;
-    /** Where the metronome is; outlined. */
-    metronomeHead?: Position;
     /** "Start playback from": a triangle button at each measure start picks where playback starts. */
     picking?: boolean;
     onpick?: (measure: number) => void;
@@ -288,10 +286,6 @@
                   <rect class="playhead" x={columnAt(measure, playhead.tick + (measure.offsets?.[playhead.measure] ?? 0)) * CELL} y="0"
                     width={CELL} {height} />
                 {/if}
-                {#if metronomeHead && measure.plays.includes(metronomeHead.measure)}
-                  <rect class="metronome-head" x={columnAt(measure, metronomeHead.tick + (measure.offsets?.[metronomeHead.measure] ?? 0)) * CELL + 1} y="1"
-                    width={CELL - 2} height={height - 2} />
-                {/if}
                 {#if m > 0}<line class="barline" x1="0" x2="0" y1="0" y2={height} />{/if}
                 {#if measure.repeat?.start}
                   <!-- Traditional repeat sign: thick line, thin line, two dots. -->
@@ -424,7 +418,6 @@
   .pedal-span line, .pedal-span polyline { stroke: currentColor; stroke-width: 1.5; }
   .articulations polyline, .articulations path, .articulations line { stroke-linecap: round; stroke-linejoin: round; }
   .art-trill { stroke: none; font-style: italic; font-weight: bold; text-anchor: middle; dominant-baseline: central; font-family: serif; }
-  .metronome-head { fill: none; stroke: var(--primary); stroke-width: 2; stroke-dasharray: 4 3; }
   .sheet-hands { position: relative; }
   .deleted-layer { position: absolute; top: 0; left: 0; pointer-events: none; overflow: visible; }
   .deleted-frame line { stroke: var(--tertiary); stroke-width: 1.5; stroke-linecap: round; }
