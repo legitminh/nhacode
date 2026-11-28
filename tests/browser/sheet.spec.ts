@@ -35,6 +35,30 @@ test('sheet and keyboard toggles show the screens side by side', async ({ page }
   await expect(main).toHaveAttribute('data-views', '');
 });
 
+test('a narrow toolbar wraps whole items onto new rows instead of squeezing them', async ({ page }) => {
+  await page.setViewportSize({ width: 420, height: 800 });
+  await page.getByRole('button', { name: /^Sheet/ }).click();
+  const boxes = await page.locator('.settings-bar > *').evaluateAll((items) => items.map((item) => {
+    const box = item.getBoundingClientRect();
+    return { top: box.top, bottom: box.bottom, left: box.left, right: box.right, natural: item.scrollWidth };
+  }));
+  expect(new Set(boxes.map((box) => Math.round(box.top / 10))).size).toBeGreaterThan(1);
+  for (const [i, box] of boxes.entries()) {
+    expect(box.right - box.left).toBeGreaterThanOrEqual(box.natural - 1);
+    expect(box.right).toBeLessThanOrEqual(421);
+    for (const other of boxes.slice(i + 1)) {
+      const overlap = Math.min(box.right, other.right) - Math.max(box.left, other.left) > 1
+        && Math.min(box.bottom, other.bottom) - Math.max(box.top, other.top) > 1;
+      expect(overlap).toBe(false);
+    }
+  }
+  // A menu opens below the whole toolbar, however many rows it takes.
+  await page.keyboard.press('t');
+  const bar = (await page.locator('.settings-bar').boundingBox())!;
+  const panel = (await page.locator('.metronome-menu > .subkeyframe-panel').boundingBox())!;
+  expect(panel.y).toBeGreaterThanOrEqual(bar.y + bar.height - 1);
+});
+
 test('Für Elise renders as wrapped streams of hex digits with octave lines', async ({ page }) => {
   await page.getByRole('button', { name: /^Sheet/ }).click();
   await page.getByRole('button', { name: /^Keyboard/ }).click();
