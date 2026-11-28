@@ -266,11 +266,13 @@
               {@const color = glyph.octaves.map((octave) => octaveLineColor(octave))}
               <g class="octave-glyph" data-shape={glyph.shape} data-octaves={glyph.octaves.join(' ')} data-column={glyph.column} stroke-width={OCTAVE}>
                 {#if glyph.shape === 'diamond'}
+                  <!-- A rotated square: as wide as it is tall (at most the column). -->
                   {@const my = (top + bottom) / 2}
-                  <line style:stroke={color[0]} x1={x0} y1={my} x2={cx} y2={top} />
-                  <line style:stroke={color[1]} x1={cx} y1={top} x2={x1} y2={my} />
-                  <line style:stroke={color[2]} x1={x0} y1={my} x2={cx} y2={bottom} />
-                  <line style:stroke={color[3]} x1={cx} y1={bottom} x2={x1} y2={my} />
+                  {@const r = Math.min((bottom - top) / 2, (x1 - x0) / 2)}
+                  <line style:stroke={color[0]} x1={cx - r} y1={my} x2={cx} y2={my - r} />
+                  <line style:stroke={color[1]} x1={cx} y1={my - r} x2={cx + r} y2={my} />
+                  <line style:stroke={color[2]} x1={cx - r} y1={my} x2={cx} y2={my + r} />
+                  <line style:stroke={color[3]} x1={cx} y1={my + r} x2={cx + r} y2={my} />
                 {:else}
                   <line style:stroke={color[0]} x1={x0} y1={top} x2={cx} y2={bottom} />
                   <line style:stroke={color[1]} x1={cx} y1={bottom} x2={x1} y2={top} />
