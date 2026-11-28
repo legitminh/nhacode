@@ -308,7 +308,8 @@ def parse_score(xml):
         divisions = 1
         staves = 1
         clefs = {}  # staff number -> clef sign, to tell hands apart
-        open_ties = {}  # (staff, voice, midi) -> note dict, awaiting a tie stop
+        part_notes = []  # (note, voice, tie starts here), for joining ties once the part is read
+        part_ends = []  # where this part's own measures end
         ending = None  # numbers of the volta (1st/2nd ending) bracket open over these measures
         for index, measure in enumerate(part.findall('measure')):
             if index == len(measures):
@@ -392,25 +393,93 @@ def parse_score(xml):
                 if pitch is None:
                     continue  # rest or unpitched
                 midi = (int(pitch.findtext('octave')) + 1) * 12 + STEPS[pitch.findtext('step')] + round(float(pitch.findtext('alter', '0')))
-                ties = {tie.get('type') for tie in element.findall('tie')}
-                key = (element.findtext('staff', '1'), element.findtext('voice', '1'), midi)
-                previous = open_ties.pop(key, None) if 'stop' in ties else None
-                if previous is not None and previous['measure'] == index and previous['start'] + previous['duration'] == start:
-                    previous['duration'] += duration  # tied inside the measure: one held note
-                    note = previous
-                else:
-                    staff = element.findtext('staff', '1')
-                    # A piano grand staff's lower staff is the left hand; other staves go by their clef.
-                    left = staff == '2' if staves == 2 else clefs.get(staff) == 'F'
-                    note = {'measure': index, 'start': start, 'duration': duration, 'midi': midi, 'hand': 'left' if left else 'right',
-                            'art': articulations(element)}
-                    if previous is not None:
-                        note['tied'] = True
-                    out['notes'].append(note)
-                if 'start' in ties:
-                    open_ties[key] = note
+                # <tie> is the sound, <tied> the drawn arc; scores sometimes carry only one of them.
+                ties = {tie.get('type') for tie in element.findall('tie')} | {tie.get('type') for tie in element.iter('tied')}
+                staff = element.findtext('staff', '1')
+                # A piano grand staff's lower staff is the left hand; other staves go by their clef.
+                left = staff == '2' if staves == 2 else clefs.get(staff) == 'F'
+                note = {'measure': index, 'start': start, 'duration': duration, 'midi': midi, 'hand': 'left' if left else 'right',
+                        'art': articulations(element)}
+                out['notes'].append(note)
+                part_notes.append((note, element.findtext('voice', '1'), 'start' in ties))
             out['duration'] = max(out['duration'], end)
+            part_ends.append(end)
+        join_ties(part_notes, part_ends, measures)
+    for measure in measures:
+        measure['notes'] = merge_unisons(measure['notes'])
     return tpq, measures
+
+
+def join_ties(part_notes, part_ends, measures):
+    """Join each tied note into the note it is tied to: one key held, not struck again.
+
+    A tie runs from a note to the next note of the same pitch, starting exactly where it
+    ends, often in another voice or on the other staff (Clair de Lune hands its chords from
+    voice to voice, and writes the stop before the start). So ties are matched by pitch and
+    time once the whole part is read, same voice first, whatever voice or order the score
+    writes them in, and whether or not the stop is written. A stop with no start sounds.
+    Inside a measure the two become one longer note; over a barline the next measure's
+    part is kept as a 'tied' continuation, which plays nothing new.
+    """
+    at = {}
+    for note, voice, _ in part_notes:
+        at.setdefault((note['measure'], note['start'], note['midi']), []).append((voice, note))
+    absorbed = set()
+
+    def follower(note, voice):
+        end = note['start'] + note['duration']
+        index = note['measure']
+        candidates = at.get((index, end, note['midi']), [])
+        if not candidates and index + 1 < len(part_ends) and end >= part_ends[index]:
+            candidates = at.get((index + 1, 0, note['midi']), [])
+        candidates = [pair for pair in candidates if id(pair[1]) not in absorbed and pair[1] is not note]
+        return next((pair for pair in candidates if pair[0] == voice), candidates[0]) if candidates else None
+
+    tie_starts = {id(note) for note, _, tie_start in part_notes if tie_start}
+    for note, voice, _ in sorted(part_notes, key=lambda item: (item[0]['measure'], item[0]['start'])):
+        # Follow the chain: a note tied on and on inside its measure grows into one note.
+        while id(note) in tie_starts and id(note) not in absorbed:
+            tie_starts.discard(id(note))
+            pair = follower(note, voice)
+            if pair is None:
+                break
+            follow = pair[1]
+            if follow['measure'] != note['measure']:
+                follow['tied'] = True
+                break
+            note['duration'] = follow['start'] + follow['duration'] - note['start']
+            note['art'] = sorted(set(note['art']) | set(follow['art']), key=ART_ORDER.index)
+            absorbed.add(id(follow))
+            if id(follow) in tie_starts:
+                tie_starts.add(id(note))  # the longer note carries on the follower's tie
+    if absorbed:
+        for measure in measures:
+            measure['notes'] = [note for note in measure['notes'] if id(note) not in absorbed]
+
+
+def merge_unisons(notes):
+    """One key, one note: the same pitch struck at the same moment by one hand in two voices.
+
+    Scores write a shared notehead once per voice (a short note in one voice, the held
+    note in another). On the keyboard that is a single key held for the longer length.
+    """
+    merged = []
+    by_key = {}
+    for note in notes:
+        if note.get('grace'):
+            merged.append(note)
+            continue
+        key = (note['start'], note['midi'], note['hand'])
+        kept = by_key.get(key)
+        if kept is None:
+            by_key[key] = note
+            merged.append(note)
+            continue
+        kept['duration'] = max(kept['duration'], note['duration'])
+        kept['art'] = sorted(set(kept['art']) | set(note['art']), key=ART_ORDER.index)
+        if note.get('tied'):
+            kept['tied'] = True
+    return merged
 
 
 def shorten_repeat_endings(measures, tpq):

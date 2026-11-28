@@ -214,6 +214,11 @@ python3 scripts/pdmx.py sync                  # fetch + simplify everything in s
 ```
 
 Repeats are shown as written, not unrolled. Grace notes are omitted.
+Ties are joined by pitch and time, whatever voice or staff each end is written
+in, so a note tied to the same pitch is one held key, not a short note plus a
+held one. The same pitch struck at once by one hand in two voices (a shared
+notehead) is kept once, at the longer length. Converter tests:
+`python3 -m unittest discover scripts`.
 An entry's `tempo_scale` corrects a score whose tempo marking is off: PDMX's
 Für Elise marks ♩=100 in 3/8 (about twice a usual *Poco moto*), so it is scaled
 by 0.65 to ♩=65.
