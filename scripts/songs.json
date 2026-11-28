@@ -11,5 +11,7 @@
   { "id": "dies-irae", "title": "Requiem: Dies Irae", "composer": "Wolfgang Amadeus Mozart", "path": "./mxl/3/32/QmdMJZk6TkfyHb4ed9HcUqubFsy1ZgEBdWs7HmfaXX9uek.mxl" },
   { "id": "jasmine-flower", "title": "Jasmine Flower (Mò Lì Huā)", "composer": "Chinese traditional", "path": "./mxl/6/56/QmNz39utyfxG4PfDPaYjRSsmEFdrSFvnCgUve1Z4wksbPd.mxl", "tags": ["classical", "eastern"] },
   { "id": "sakura", "title": "Sakura Sakura", "composer": "Japanese traditional", "path": "./mxl/8/1/QmQ2V2JBKPsYPkPg4HbGqzM2wDZBefoC819zTZ1kgi8TUr.mxl", "tags": ["classical", "eastern"] },
-  { "id": "arirang", "title": "Arirang", "composer": "Korean traditional", "path": "./mxl/0/55/QmaYPfaRcsG3bYM9e42SL3jaBGA1uhAHCyqgDEMzKd4h3X.mxl", "tags": ["classical", "eastern"] }
+  { "id": "arirang", "title": "Arirang", "composer": "Korean traditional", "path": "./mxl/0/55/QmaYPfaRcsG3bYM9e42SL3jaBGA1uhAHCyqgDEMzKd4h3X.mxl", "tags": ["classical", "eastern"] },
+  { "id": "liebestraum-3", "title": "Liebestraum No. 3", "composer": "Franz Liszt", "tempo_scale": 0.75, "path": "./mxl/0/10/QmaAG3NLLT2ifXM5xTxJDTZYrzF7ZMUnxkuUikVLLb6VyR.mxl", "tags": ["classical", "western"] },
+  { "id": "orange-7oops", "title": "Orange (Your Lie in April)", "composer": "7!!", "path": "./mxl/13/25/QmViPmvX4QwB159FHdZyXUKR5uDPYTkoKogUfJJ6k317bQ.mxl", "tags": ["eastern"] }
 ]

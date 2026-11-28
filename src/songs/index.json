@@ -54,6 +54,15 @@
     ]
   },
   {
+    "id": "liebestraum-3",
+    "title": "Liebestraum No. 3",
+    "composer": "Franz Liszt",
+    "tags": [
+      "classical",
+      "western"
+    ]
+  },
+  {
     "id": "moonlight-sonata",
     "title": "Moonlight Sonata, 1st movement",
     "composer": "Ludwig van Beethoven",
@@ -69,6 +78,14 @@
     "tags": [
       "classical",
       "western"
+    ]
+  },
+  {
+    "id": "orange-7oops",
+    "title": "Orange (Your Lie in April)",
+    "composer": "7!!",
+    "tags": [
+      "eastern"
     ]
   },
   {
