@@ -223,6 +223,26 @@ An entry's `tempo_scale` corrects a score whose tempo marking is off: PDMX's
 Für Elise marks ♩=100 in 3/8 (about twice a usual *Poco moto*), so it is scaled
 by 0.65 to ♩=65.
 
+### Songs from your own files
+
+`scripts/song_import.py` adds a song from a MIDI or MusicXML file (`.mid`, `.mxl`,
+`.musicxml`; the format is read from the content, so extensionless uploads work).
+MusicXML goes through the same parser as PDMX. MIDI is quantized to a grid (the
+coarsest that fits, triplets included, unless set), split into hands by track (a
+track named left/LH/bass, or else the lower track) or by pitch for a one-track file,
+and keeps its tempo, time signature and sustain pedal.
+
+```sh
+python3 scripts/song_import.py info  ~/Downloads/song.mid            # dry run: grid, hands, measures
+python3 scripts/song_import.py add   ~/Downloads/song.mid --id qi-feng-le --title "Qi Feng Le" --tags eastern
+python3 scripts/song_import.py set   qi-feng-le grid=12 split=62     # change one song's options, rebuild it
+python3 scripts/song_import.py rebuild                               # redo every import after a converter change
+python3 scripts/song_import.py list | remove ID
+```
+
+`add` copies the file to `scripts/imports/` and records it with its options in
+`scripts/imports.json`, so a change to the converter only needs `rebuild`.
+
 ### Saved settings
 
 Every setting (views, song, instrument, octave range, transpose, margins, sheet

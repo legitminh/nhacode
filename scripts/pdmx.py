@@ -534,6 +534,15 @@ def simplify(song_id, title, tempo_scale=1):
     path, source_title, composer, license_url, data, metadata, saved_tags = row
     tags = json.loads(saved_tags) if saved_tags and saved_tags != '[]' else tags_for(json.loads(metadata))
     tpq, measures = parse_score(musicxml_from_mxl(data))
+    write_song(song_id, title or source_title, composer if composer and composer != 'NA' else '', tags, tpq, measures,
+               {'dataset': 'PDMX', 'path': path, 'url': 'https://zenodo.org/records/15571083', 'license': license_url}, tempo_scale)
+
+
+def write_song(song_id, title, composer, tags, tpq, measures, source, tempo_scale=1):
+    """Simplify parsed measures (parse_score's shape) into src/songs/<id>.json and update the index.
+
+    Shared by PDMX songs and songs imported from a file (scripts/song_import.py).
+    """
     out_measures = []
     last = {'tempo': None}  # only show a tempo when it changes
     for measure in measures:
@@ -599,12 +608,8 @@ def simplify(song_id, title, tempo_scale=1):
         out_measures.append(item)
 
     shorten_repeat_endings(out_measures, tpq)
-    song = {
-        'id': song_id, 'title': title or source_title, 'composer': composer if composer and composer != 'NA' else '',
-        'tags': tags, 'ticksPerQuarter': tpq,
-        'source': {'dataset': 'PDMX', 'path': path, 'url': 'https://zenodo.org/records/15571083', 'license': license_url},
-        'measures': out_measures,
-    }
+    song = {'id': song_id, 'title': title, 'composer': composer or '', 'tags': tags, 'ticksPerQuarter': tpq,
+            'source': source, 'measures': out_measures}
     SONGS.mkdir(parents=True, exist_ok=True)
     (SONGS / f'{song_id}.json').write_text(json.dumps(song, ensure_ascii=False, separators=(',', ':')) + '\n')
     index_path = SONGS / 'index.json'
