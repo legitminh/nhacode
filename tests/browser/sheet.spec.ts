@@ -596,7 +596,8 @@ test('export panel downloads an A4 PDF with whole stream lines per page', async 
   // The pointer is on screen (one per hand here) but not in the exported lines.
   await expect(page.locator('.playhead')).toHaveCount(2);
   const exported = () => page.evaluate(async () => {
-    const { readSheet } = await import('/src/lib/sheet/pdf-export.ts');
+    const url = '/src/lib/sheet/pdf-export.ts'; // served by the dev server
+    const { readSheet }: typeof import('../../src/lib/sheet/pdf-export') = await import(url);
     return readSheet()!.lines.map((line) => line.svg.outerHTML).join('');
   });
   const withPointer = await exported();
