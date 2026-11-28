@@ -72,7 +72,8 @@ there (playback continues from it). **Sheet pane → Playback** hides the tool a
 **Playback instrument** picks grand piano, violin, cello or flute.
 
 The toolbar reads, left to right: **playback** (O), ▶/⏸ (P), the song title (M),
-**metronome** (T), the metronome's ▶/⏸ (N) and **export** (E).
+**metronome** (T), the metronome's ▶/⏸ (N) and **export** (E). When the window is too narrow, the toolbar
+wraps whole items onto new rows rather than squeezing them, and its menus open below the last row.
 
 - **export** saves the sheet as a PDF (the only format for now) on A4 paper, drawn as
   vectors with the sheet's current text size, line width (lines wrap where they wrap on

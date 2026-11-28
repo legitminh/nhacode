@@ -35,6 +35,8 @@
   let octaves = $state(parseOctaveRange(savedRange));
   let status = $state<'loading' | 'ready' | 'playing' | 'error'>('loading');
   let settingsOpen = $state(false);
+  /** The toolbar wraps onto more rows when narrow; its menus open below however tall it is. */
+  let barHeight = $state(0);
   let transposed = $state(readPref('transposed', false, isBoolean));
   let showKeyboard = $state(readPref('view:keyboard', true, isBoolean));
   let showSheet = $state(readPref('view:sheet', false, isBoolean));
@@ -274,8 +276,8 @@
     data-views={[showKeyboard && 'keyboard', showSheet && 'sheet'].filter(Boolean).join(' ')}
     use:interaction={{ on_pressed_down: pointerDown, on_pressed_up: pointerUp,
       on_cursor_exit: (event) => { if (event.pointer_type !== 'touch') releaseMouse(); } }}
-    style:--key-border={keyBorder} style:--rows={transposed ? octaves.length : 12} style:--columns={transposed ? 12 : octaves.length}>
-    <div class="settings-bar">
+    style:--bar-height={barHeight ? `${barHeight}px` : undefined} style:--key-border={keyBorder} style:--rows={transposed ? octaves.length : 12} style:--columns={transposed ? 12 : octaves.length}>
+    <div class="settings-bar" bind:offsetHeight={barHeight}>
       <Settings bind:open={settingsOpen} {transposed} {instrumentId} {range}
         ontranspose={setTransposed} oninstrument={selectInstrument} onrange={selectRange}
         {margins} onmargin={setMargin} {lineWidths} online={setLineWidth}
