@@ -10,13 +10,13 @@
 
   import type { Position } from './timeline';
 
-  let { songId, lineWidths, separateHands = false, repeatMode = 'expand', quarterMarker = true, inverted = false, articulations = true, modifierPosition = 'above', follow, pedalPosition = 'below', playhead, metronomeHead, picking = false, onpick, oncancelpick,
+  let { songId, lineWidths, separateHands = false, repeatMode = 'expand', simplifyOctaveLine = true, inverted = false, articulations = true, modifierPosition = 'above', follow, pedalPosition = 'below', playhead, metronomeHead, picking = false, onpick, oncancelpick,
     onseek, onsong }: {
     songId: string; lineWidths: LineWidths; separateHands?: boolean; inverted?: boolean;
     /** How repeated sections are shown; playback always follows them. */
     repeatMode?: RepeatMode;
-    /** Strike through every four octave lines in a row (0–3, 4–7…) at each column's centre, like a tally. */
-    quarterMarker?: boolean;
+    /** Simplify octave line: in each column, four lines in a row past the origin become a diamond, then two become a V. */
+    simplifyOctaveLine?: boolean;
     /** Show staccato, accent and fermata above notes and arpeggios left of chords. */
     articulations?: boolean;
     /** Where note modifiers (staccato, accent, trill, grace cross…) go relative to the digit, whatever the order. */
@@ -95,7 +95,7 @@
   // A note with modifiers gets an extra half row for them, above or below the digit.
   const MOD = $derived(ROW / 2);
   /** Each column stacks outward from the origin line on its own (see stackStream). */
-  const stack = (stream: StreamLayout) => stackStream(stream, { row: ROW, mod: articulations ? MOD : 0, gap: GAP });
+  const stack = (stream: StreamLayout) => stackStream(stream, { row: ROW, mod: articulations ? MOD : 0, gap: GAP }, simplifyOctaveLine);
 
   /** Where a note's digit and its modifiers sit, after any inversion. */
   function place(stacked: StackedStream, note: SheetNote, height: number) {
@@ -255,15 +255,28 @@
               <line class="octave-line" data-octave={line.octave} data-line={line.octave} style:stroke={octaveLineColor(line.octave)} stroke-width={OCTAVE}
                 x1={line.from * CELL + 1} x2={line.to * CELL - 1} y1={y} y2={y} />
             {/each}
-            {#if quarterMarker}
-              {#each stacked.quarters as quarter}
-                <!-- Barely touches the first and fourth lines: from edge to edge. -->
-                {@const a = quarter.from === undefined ? ORIGIN : quarter.from + OCTAVE / 2}
-                {@const b = quarter.to - OCTAVE / 2}
-                <line class="quarter-marker" data-octave={quarter.octave} x1={quarter.column * CELL + CELL / 2} x2={quarter.column * CELL + CELL / 2}
-                  y1={flip(a, height)} y2={flip(b, height)} />
-              {/each}
-            {/if}
+            {#each stacked.glyphs as glyph}
+              <!-- Simplify octave line: a diamond for four lines, a V for two; colors go top left to bottom right. -->
+              {@const x0 = glyph.column * CELL + 1}
+              {@const x1 = (glyph.column + 1) * CELL - 1}
+              {@const cx = (x0 + x1) / 2}
+              {@const ends = [flip(glyph.ys[0], height), flip(glyph.ys.at(-1)!, height)]}
+              {@const top = Math.min(...ends)}
+              {@const bottom = Math.max(...ends)}
+              {@const color = glyph.octaves.map((octave) => octaveLineColor(octave))}
+              <g class="octave-glyph" data-shape={glyph.shape} data-octaves={glyph.octaves.join(' ')} data-column={glyph.column} stroke-width={OCTAVE}>
+                {#if glyph.shape === 'diamond'}
+                  {@const my = (top + bottom) / 2}
+                  <line style:stroke={color[0]} x1={x0} y1={my} x2={cx} y2={top} />
+                  <line style:stroke={color[1]} x1={cx} y1={top} x2={x1} y2={my} />
+                  <line style:stroke={color[2]} x1={x0} y1={my} x2={cx} y2={bottom} />
+                  <line style:stroke={color[3]} x1={cx} y1={bottom} x2={x1} y2={my} />
+                {:else}
+                  <line style:stroke={color[0]} x1={x0} y1={top} x2={cx} y2={bottom} />
+                  <line style:stroke={color[1]} x1={cx} y1={bottom} x2={x1} y2={top} />
+                {/if}
+              </g>
+            {/each}
             {#each stream.measures as measure, m}
               <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
               <g class="sheet-measure" class:seekable={!!onseek} class:section={!!measure.section} data-measure={measure.number} data-index={measure.index} data-plays={measure.plays.join(' ')}
@@ -426,7 +439,7 @@
     line-height: var(--min-box);
   }
   .section-stack.inverted { top: auto; bottom: 0; }
-  .quarter-marker { stroke: var(--primary); stroke-width: 1.5; }
+  .octave-glyph line { stroke-linecap: round; }
   .repeat-sign line { stroke: var(--primary); stroke-width: 1.5; }
   .repeat-sign .repeat-thick { stroke-width: 4; }
   .repeat-sign circle { fill: var(--primary); }

@@ -195,11 +195,11 @@ export type StackSizes = {
 export type OctaveLine = { octave: number; from: number; to: number; y: number };
 
 /**
- * A quarter marker: in `column`, octave lines `octave`..`octave + 3` sit right after one another
- * with nothing between them, so a stroke crosses all four (like a tally). `from` is the first
- * line's y (undefined for the origin line), `to` the fourth's.
+ * A simplified run of octave lines in one column ("Simplify octave line"): `octaves` are the
+ * consecutive lines it replaces (four for a diamond, two for a V), with nothing between them,
+ * lowest first; `ys` are their y's (from the origin side).
  */
-export type QuarterMark = { column: number; octave: number; from?: number; to: number };
+export type OctaveGlyph = { column: number; shape: 'diamond' | 'v'; octaves: number[]; ys: number[] };
 
 export type StackedStream = {
   /** Distance from the origin side of the stream to the near edge of each note's slot. */
@@ -207,7 +207,8 @@ export type StackedStream = {
   /** Height of each note's slot: the digit, plus room for its modifiers. */
   heights: Map<SheetNote, number>;
   lines: OctaveLine[];
-  quarters: QuarterMark[];
+  /** With `simplify`, the diamonds and V's that replace runs of octave lines. */
+  glyphs: OctaveGlyph[];
   height: number;
 };
 
@@ -219,7 +220,7 @@ export type StackedStream = {
  * covers. Octave lines sit right below the first thing of their octave in a column, so
  * they step between columns. Skips are the lowest thing in their column.
  */
-export function stackStream(stream: StreamLayout, sizes: StackSizes): StackedStream {
+export function stackStream(stream: StreamLayout, sizes: StackSizes, simplify = false): StackedStream {
   const { row, mod, gap } = sizes;
   const top = Array.from({ length: stream.frames }, () => gap);
   const count = Array.from({ length: stream.frames }, () => 0);
@@ -254,6 +255,28 @@ export function stackStream(stream: StreamLayout, sizes: StackSizes): StackedStr
     heights.set(note, height);
     for (let c = from; c < to; c++) top[c] = level + height;
   }
+  // Simplify octave line: in each column, every run of lines past the origin with nothing
+  // between them becomes diamonds (four lines each) and then V's (two lines each), lowest first.
+  const glyphs: OctaveGlyph[] = [];
+  const hidden = Array.from({ length: stream.frames }, () => new Set<number>());
+  if (simplify) {
+    for (let c = 0; c < stream.frames; c++) {
+      let o = 1;
+      while (lineY[o]?.[c] !== undefined) {
+        let end = o;
+        while (lineY[end + 1]?.[c] !== undefined && !occupied[c].has(end)) end += 1;
+        let k = o;
+        for (const [shape, size] of [['diamond', 4], ['v', 2]] as const) {
+          for (; end - k + 1 >= size; k += size) {
+            const octaves = Array.from({ length: size }, (_, i) => k + i);
+            glyphs.push({ column: c, shape, octaves, ys: octaves.map((octave) => lineY[octave][c]) });
+            for (const octave of octaves) hidden[c].add(octave);
+          }
+        }
+        o = end + 1;
+      }
+    }
+  }
   // Merge each octave's line into runs of equal height, broken at barlines.
   const lines: OctaveLine[] = [];
   const barline = new Set(starts);
@@ -261,22 +284,14 @@ export function stackStream(stream: StreamLayout, sizes: StackSizes): StackedStr
     if (!ys) return;
     let run: OctaveLine | undefined;
     for (let c = 0; c <= stream.frames; c++) {
-      const y = ys[c];
+      const y = hidden[c]?.has(octave) ? undefined : ys[c];
       if (run && (y === undefined || y !== run.y || barline.has(c))) { lines.push(run); run = undefined; }
       if (y === undefined) continue;
       if (run) run.to = c + 1;
       else run = { octave, from: c, to: c + 1, y };
     }
   });
-  // Quarter markers: every four lines from octave 0 (0–3, 4–7…) with no notes between them.
-  const quarters: QuarterMark[] = [];
-  for (let c = 0; c < stream.frames; c++) {
-    for (let o = 0; lineY[o + 3]?.[c] !== undefined; o += 4) {
-      if ([o, o + 1, o + 2].some((octave) => occupied[c].has(octave))) continue;
-      quarters.push({ column: c, octave: o, from: o ? lineY[o][c] : undefined, to: lineY[o + 3][c] });
-    }
-  }
-  return { tops, heights, lines, quarters, height: Math.max(gap, ...top) };
+  return { tops, heights, lines, glyphs, height: Math.max(gap, ...top) };
 }
 
 /** A stream: a line of measures. */

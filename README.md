@@ -179,10 +179,11 @@ The sheet has no stave; it only shows which key is pressed when:
     `01`). Replacing every § measure with its section gives the expanded stream.
   Repeats, endings and D.C./D.S./Coda/Fine come from the score's MusicXML. After a
   D.C. or D.S. repeats are not taken again and only the last ending plays.
-- **Sheet pane → Quarter marker** (on by default) strikes through every four octave
-  lines in a row (0–3, then 4–7…) at the centre of each column where those four lines
-  sit together with no notes between them, like a tally: the first stroke runs from the
-  red origin line through green and blue to yellow, barely touching red and yellow.
+- **Sheet pane → Simplify octave line** (on by default) shortens runs of octave lines
+  in each column. Every four lines in a row past the red origin line, with no notes
+  between them, become a diamond whose sides take their colors (green, blue, yellow,
+  cyan: top left, top right, bottom left, bottom right). Then every two remaining lines
+  in a row become a V, the first line's color on the left. A single line stays a line.
 - **Sheet pane → Order: Inverted** flips each stream vertically: octave 0 and its
   thick line go to the bottom, higher octaves sit above, and in a mega stream the
   left hand and the thick bar go to the bottom.
